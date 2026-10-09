@@ -1,0 +1,36 @@
+{
+  "_izoh": [
+    "7 kunlik darslardan keyingi yakuniy bilim testi (landing-2: /test/yakuniy). Ochiq test — havola, token va ism talab qilinmaydi.",
+    "Har bir savol: id, text, options (A/B/C/D — 4 ta variant), correct — to‘g‘ri variant harfi (A, B, C yoki D).",
+    "Har bir to‘g‘ri javob — 1 ball (jami 20). 16–20 ball (80% va yuqori) — 'Testdan o‘tdi', 0–15 ball — 'Testdan o‘tmadi'.",
+    "To‘g‘ri javoblar kaliti faqat backendda; test sahifasiga yuborilmaydi.",
+    "Savollarni o‘zgartirsangiz, serverni qayta ishga tushirish shart emas. Avval topshirilgan natijalarda savollar nusxasi saqlanadi."
+  ],
+  "kind": "final",
+  "slug": "yakuniy",
+  "title": "Yakuniy bilim testi",
+  "subtitle": "7 kunlik o‘quv dasturi bo‘yicha 20 ta savol",
+  "passPercent": 80,
+  "questions": [
+    {"id": 1, "text": "Kompaniya missiyasini yozing.", "options": ["Sifatli mijoz — sifatli sotuv", "Biologik faol qo‘shimchalarning O‘zbekistondagi o‘rnini mustahkamlash", "Mahsulotlarni faqat O‘zbekistonda sotish", "Mijozlarga faqat dori vositalarini taklif qilish"], "correct": "B"},
+    {"id": 2, "text": "Gepomer 1 oylik kompleksida nechta mahsulot bor?", "options": ["3 ta", "4 ta", "5 ta", "6 ta"], "correct": "C"},
+    {"id": 3, "text": "Dermo Kompleks tarkibida nimalar bor?", "options": ["Sirob, sovun, krem", "Faqat sovun va krem", "Faqat sirob", "Sirob va sovun"], "correct": "A"},
+    {"id": 4, "text": "Halila nimaga yordam beradi?", "options": ["Onkologik jarayonlarning oldini olish va metastaz xavfini kamaytirishga yordam beradi", "Faqat shamollashni davolaydi", "Faqat teri kasalliklarini davolaydi", "Faqat bosh og‘rig‘ini kamaytiradi"], "correct": "A"},
+    {"id": 5, "text": "Yusuf Abdugafurovich kompaniyamizda qanday lavozimda ishlaydi?", "options": ["Sotuv menejeri", "HR Admin", "Asoschi", "Marketing menejeri"], "correct": "C"},
+    {"id": 6, "text": "BAD nima?", "options": ["Dori vositasi", "Tabiiy giyohlar asosidagi biologik faol ozuqaviy qo‘shimcha", "Antibiotik", "Kimyoviy preparat"], "correct": "B"},
+    {"id": 7, "text": "Ekstrakt nima?", "options": ["Giyohlarni maxsus ishlov berish natijasida olingan dorivor qismi", "Kimyoviy dori vositasi", "Vitaminlarning aralashmasi", "Oddiy suvli eritma"], "correct": "A"},
+    {"id": 8, "text": "Onkologik, teri va jigar muammolarini umumiy keltirib chiqaruvchi nima?", "options": ["Immunitet", "Vitamin yetishmasligi", "Suv yetishmasligi", "Uyqusizlik"], "correct": "A"},
+    {"id": 9, "text": "Yog‘li gepatoz nima?", "options": ["Jigar hujayralari va atrofida yog‘ to‘planishi", "Oshqozonda kislota ko‘payishi", "Qonda shakar kamayishi", "Teri qurishi"], "correct": "A"},
+    {"id": 10, "text": "Psoriaz yuqumlimi?", "options": ["Ha", "Yo‘q", "Faqat bolalarda", "Faqat kattalarda"], "correct": "B"},
+    {"id": 11, "text": "Autoimmun jarayon nima?", "options": ["Immunitet tizimining o‘z sog‘lom hujayralariga hujum qilishi", "Organizmda suv kamayishi", "Qon bosimining oshishi", "Vitamin yetishmasligi"], "correct": "A"},
+    {"id": 12, "text": "Achchiq tarvuz ekstrakti qaysi mahsulotimiz tarkibida bor?", "options": ["Gepomer", "Halila", "Dermolife Complex", "Barcha mahsulotlarimizda"], "correct": "D"},
+    {"id": 13, "text": "Ekzema kasalligida qaysi mahsulotni tavsiya qilamiz?", "options": ["Gepomer", "Halila", "Dermolife", "Boshqa mahsulot"], "correct": "C"},
+    {"id": 14, "text": "Gepatit C holatida qaysi mahsulotni tavsiya qilamiz?", "options": ["Dermolife", "Gepomer", "Halila", "Boshqa mahsulot"], "correct": "B"},
+    {"id": 15, "text": "Kista va Mioma kabi holatlarda qaysi mahsulotni tavsiya qilamiz?", "options": ["Dermolife", "Gepomer", "Halila", "Boshqa mahsulot"], "correct": "C"},
+    {"id": 16, "text": "Bizning mahsulotlarimizni ishlatayotgan mijoz shifokor tomonidan yozilgan dorilarni to‘xtatishi kerakmi?", "options": ["Ha", "Yo‘q", "Faqat 1 hafta to‘xtatadi", "Faqat mahsulot ta’sir qilmasa to‘xtatadi"], "correct": "B"},
+    {"id": 17, "text": "Sotuvda “Ehtiyojni oshirish” nima degani?", "options": ["Mijozga mahsulotni majburan sotish", "Mijozga to‘g‘ri kelishi mumkin bo‘lgan real xavflar haqida ogohlantirish", "Mahsulot narxini tushirish", "Mijoz bilan suhbatni tugatish"], "correct": "B"},
+    {"id": 18, "text": "LID tushunchasi nima?", "options": ["Xodim", "Mijoz", "Rahbar", "Sotuvchi"], "correct": "B"},
+    {"id": 19, "text": "Sotuv menejerining vazifasi nima?", "options": ["Faqat mahsulot narxini aytish", "Mijozni eshitish, ehtiyojini aniqlash, mahsulot haqida to‘g‘ri va ishonchli ma’lumot berish, mahsulot narxini tushuntirish, sotuvni amalga oshirish va sotuvdan keyingi jarayonni nazorat qilish", "Faqat telefon qo‘ng‘iroqlarini qabul qilish", "Faqat reklama qilish"], "correct": "B"},
+    {"id": 20, "text": "Kompaniyamizda mahsulotni mijozga yetkazib berish narxi qancha?", "options": ["20 000 so‘m", "30 000 so‘m", "50 000 so‘m", "Bepul"], "correct": "D"}
+  ]
+}

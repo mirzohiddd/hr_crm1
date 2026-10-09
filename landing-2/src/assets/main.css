@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-[#F5F8FF] font-sans text-sm text-ink;
+  }
+  :focus-visible {
+    outline: 2px solid theme('colors.primary.600');
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .form-label {
+    @apply mb-1.5 block text-[13px] font-medium text-ink;
+  }
+  .form-input {
+    @apply block h-10 w-full rounded-lg border border-line bg-white px-3 text-sm text-ink transition-[border-color,box-shadow] duration-150 placeholder:text-slate-400;
+    @apply focus:border-primary-500 focus:outline-none focus:ring-4 focus:ring-primary-500/10;
+  }
+  .form-input.has-error {
+    @apply border-red-300 focus:border-red-500 focus:ring-red-500/10;
+  }
+  .form-error {
+    @apply mt-1.5 text-xs text-red-600;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

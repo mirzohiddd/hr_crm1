@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.secret_key
+hr_crm.db
+hr_crm.db.migrated
+data/
+*.json.tmp
+uploads/*
+!uploads/.gitkeep

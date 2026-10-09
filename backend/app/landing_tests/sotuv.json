@@ -1,0 +1,99 @@
+{
+  "_izoh": [
+    "Sotuv lavozimi uchun nomzodlar testi (landing: /test/sotuv). Savollarni shu faylda tahrirlang va serverni qayta ishga tushiring.",
+    "type=scale — 1–5 ballik baho. key=direct: nomzod tanlagan raqam = ball; key=reverse: ball = 6 - tanlangan raqam (teskari savol).",
+    "type=choice — A/B/C/D variantlar, har bir variantning 'points' qiymati (0–5) nomzodga beriladigan ball.",
+    "Foiz = to‘plangan ball / maksimal ball * 100. passPercent (80) va undan yuqori — 'Testdan o‘tdi', past — 'Testdan yiqildi'.",
+    "Topshirilgan natijalarda savollar nusxasi saqlanadi — keyin tahrirlansa ham eski natijalar o‘zgarmaydi."
+  ],
+  "slug": "sotuv",
+  "title": "Sotuv bo‘limi uchun nomzodlar testi",
+  "subtitle": "Shaxsiy sifatlar va real savdo vaziyatlari bo‘yicha 20 ta savol",
+  "positions": ["Sotuv menejeri", "Sotuv operatori (Call Center)", "Savdo maslahatchisi"],
+  "passPercent": 80,
+  "scale": {
+    "min": 1,
+    "max": 5,
+    "labels": ["Mutlaqo qo‘shilmayman", "Qo‘shilmayman", "Ikkilanaman", "Qo‘shilaman", "To‘liq qo‘shilaman"]
+  },
+  "sections": [
+    { "id": "personal", "title": "Shaxsiy sifatlar", "description": "Har bir fikrga qanchalik qo‘shilishingizni 1 dan 5 gacha baholang. To‘g‘ri yoki noto‘g‘ri javob yo‘q — samimiy javob bering." },
+    { "id": "cases", "title": "Savdo vaziyatlari", "description": "Har bir vaziyatda o‘zingiz qiladigan eng to‘g‘ri harakatni tanlang." }
+  ],
+  "questions": [
+    { "id": 1, "section": "personal", "type": "scale", "text": "Notanish odamlar bilan suhbatni oson boshlayman.", "key": "direct", "keyNote": "Faol muloqot — sotuvchi uchun asosiy sifat" },
+    { "id": 2, "section": "personal", "type": "scale", "text": "Mijoz “yo‘q” desa, suhbat shu bilan tugadi deb hisoblayman.", "key": "reverse", "keyNote": "E’tirozdan keyin ham ishlay olish kerak" },
+    { "id": 3, "section": "personal", "type": "scale", "text": "Oylik reja (plan) va natija men uchun kuchli motivatsiya.", "key": "direct", "keyNote": "Natijaga yo‘naltirilganlik" },
+    { "id": 4, "section": "personal", "type": "scale", "text": "Kun bo‘yi bir xil ishni (qo‘ng‘iroq, yozishma) takrorlash meni tez charchatadi.", "key": "reverse", "keyNote": "Sotuvda bir xil jarayonga chidamlilik zarur" },
+    { "id": 5, "section": "personal", "type": "scale", "text": "Mijozni gapirtirib, uning ehtiyojini diqqat bilan tinglashni yaxshi ko‘raman.", "key": "direct", "keyNote": "Faol tinglash" },
+    { "id": 6, "section": "personal", "type": "scale", "text": "Qo‘pol mijoz bilan gaplashgandan keyin uzoq vaqt o‘zimga kela olmayman.", "key": "reverse", "keyNote": "Stressga chidamlilik" },
+    { "id": 7, "section": "personal", "type": "scale", "text": "Mahsulotni sotishdan oldin uning afzalliklari va farqlarini chuqur o‘rganaman.", "key": "direct", "keyNote": "Mahsulotni bilishga intilish" },
+    { "id": 8, "section": "personal", "type": "scale", "text": "Savdoni yopish uchun mijozga to‘liq to‘g‘ri bo‘lmagan ma’lumot berish mumkin.", "key": "reverse", "keyNote": "Halollik — kompaniya obro‘si uchun muhim" },
+    { "id": 9, "section": "personal", "type": "scale", "text": "Kun oxirida qo‘ng‘iroqlarim va natijalarimni tahlil qilib, xulosa chiqaraman.", "key": "direct", "keyNote": "O‘z ustida ishlash" },
+    { "id": 10, "section": "personal", "type": "scale", "text": "Rahbarning tanqidini shaxsiy haqorat deb qabul qilaman.", "key": "reverse", "keyNote": "Tanqidni to‘g‘ri qabul qilish" },
+    { "id": 11, "section": "personal", "type": "scale", "text": "Jamoada ishlash va hamkasblar tajribasidan o‘rganish menga yoqadi.", "key": "direct", "keyNote": "Jamoaviy ish" },
+    { "id": 12, "section": "personal", "type": "scale", "text": "Ishlarni ertaga qoldirib turish odatim bor.", "key": "reverse", "keyNote": "Intizom va o‘z vaqtida bajarish" },
+    { "id": 13, "section": "personal", "type": "scale", "text": "Ish vaqti va kun tartibiga qat’iy rioya qilaman.", "key": "direct", "keyNote": "Intizom" },
+    { "id": 14, "section": "personal", "type": "scale", "text": "Mijoz bilan kelishilgan qayta qo‘ng‘iroq vaqtini unutmayman.", "key": "direct", "keyNote": "Mas’uliyat va mijozga e’tibor" },
+    {
+      "id": 15, "section": "cases", "type": "choice",
+      "text": "Mijoz: “Narxi juda qimmat ekan”. Siz nima qilasiz?",
+      "options": [
+        { "text": "Darhol chegirma taklif qilaman", "points": 1 },
+        { "text": "Mahsulot mijozga beradigan foydani tushuntirib, uning ehtiyojini aniqlayman", "points": 5 },
+        { "text": "“Boshqa joyda bundan ham qimmat” deb bahslashaman", "points": 0 },
+        { "text": "O‘ylab ko‘rishni taklif qilib, keyinroq qo‘ng‘iroq qilishga kelishaman", "points": 3 }
+      ]
+    },
+    {
+      "id": 16, "section": "cases", "type": "choice",
+      "text": "Kunlik rejaning 40 foizini bajardingiz, ish kuni tugashiga 2 soat qoldi. Qanday yo‘l tutasiz?",
+      "options": [
+        { "text": "Qolgan vaqtda eng “issiq” mijozlarga ustuvor qo‘ng‘iroq qilaman", "points": 5 },
+        { "text": "Ertaga ko‘proq ishlab, o‘rnini to‘ldiraman deb xotirjam bo‘laman", "points": 1 },
+        { "text": "Rahbardan maslahat so‘rab, ishni davom ettiraman", "points": 3 },
+        { "text": "Reja haddan tashqari katta, bajarib bo‘lmaydi deb hisoblayman", "points": 0 }
+      ]
+    },
+    {
+      "id": 17, "section": "cases", "type": "choice",
+      "text": "Mijoz qo‘ng‘iroq paytida asabiylashib, ovozini ko‘tardi. Nima qilasiz?",
+      "options": [
+        { "text": "Men ham qat’iy ohangda javob beraman", "points": 0 },
+        { "text": "Suhbatni muloyimlik bilan tugatib, boshqa mijozga o‘taman", "points": 1 },
+        { "text": "Xotirjam tinglayman, uning noroziligini tan olib, muammoni hal qilish yo‘lini taklif qilaman", "points": 5 },
+        { "text": "Muammoni yozib olib, mas’ul xodimga topshiraman va qayta aloqa vaqtini aytaman", "points": 3 }
+      ]
+    },
+    {
+      "id": 18, "section": "cases", "type": "choice",
+      "text": "Sotuv suhbatini boshlashda eng to‘g‘ri birinchi qadam qaysi?",
+      "options": [
+        { "text": "Darhol mahsulot narxini aytish", "points": 0 },
+        { "text": "O‘zini tanishtirib, mijoz ehtiyojini aniqlovchi savollar berish", "points": 5 },
+        { "text": "Mahsulotning barcha xususiyatlarini batafsil sanab berish", "points": 1 },
+        { "text": "Joriy aksiya va chegirmalar haqida gapirish", "points": 3 }
+      ]
+    },
+    {
+      "id": 19, "section": "cases", "type": "choice",
+      "text": "Mijoz: “O‘ylab ko‘raman”, dedi. Siz nima qilasiz?",
+      "options": [
+        { "text": "Rahmat aytib, xayrlashaman", "points": 1 },
+        { "text": "Telegram orqali mahsulot haqida ma’lumot yuborib qo‘yaman", "points": 3 },
+        { "text": "Bugun olmasa, narx oshishini aytib bosim o‘tkazaman", "points": 0 },
+        { "text": "Uni nima ikkilantirayotganini aniqlab, savollariga javob beraman va keyingi aloqa vaqtini kelishaman", "points": 5 }
+      ]
+    },
+    {
+      "id": 20, "section": "cases", "type": "choice",
+      "text": "Sizningcha, yaxshi sotuvchining eng muhim sifati qaysi?",
+      "options": [
+        { "text": "Mijozni tinglash va uning ehtiyojini tushunish", "points": 5 },
+        { "text": "Ko‘p va tez gapira olish", "points": 0 },
+        { "text": "Mahsulotni juda yaxshi bilish", "points": 3 },
+        { "text": "Chiroyli tashqi ko‘rinish", "points": 1 }
+      ]
+    }
+  ]
+}
