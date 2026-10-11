@@ -4,15 +4,15 @@ import vue from '@vitejs/plugin-vue'
 
 /**
  * Landing /test/ manzilida ishlaydi: /test/sotuv
- * - Ishlab chiqishda: http://localhost:5174/test/sotuv (CRM dev-serveri ham /test ni shu yerga uzatadi)
- * - Serverda: backend landing/dist ni /test/ da ochadi (/test/yakuniy — landing-2/)
+ * - Ishlab chiqishda: http://localhost:5174/test/sotuv
+ * - Vercel'da: asosiy / manzilida ishlaydi
  */
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const backend = env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'
 
   return {
-    base: '/test/',
+    base: process.env.VERCEL ? '/' : '/test/',
     plugins: [vue()],
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
@@ -26,4 +26,4 @@ export default defineConfig(({ mode }) => {
       proxy: { '/api': { target: backend, changeOrigin: true } },
     },
   }
-})
+}) 
