@@ -9,7 +9,7 @@
   "slug": "sotuv",
   "title": "Sotuv bo‘limi uchun nomzodlar testi",
   "subtitle": "Shaxsiy sifatlar va real savdo vaziyatlari bo‘yicha 20 ta savol",
-  "positions": ["Sotuv menejeri", "Sotuv operatori (Call Center)", "Savdo maslahatchisi"],
+  "positions": ["Sotuv menejeri", "Sotuv operatori (Call Center)", "Savdo maslahatchisi", "Marketing", "Logistika"],
   "passPercent": 80,
   "scale": {
     "min": 1,
