@@ -5,7 +5,8 @@ Har bir to‘plam alohida fayl: backend/data/<nom>.json
     employees.json, candidates.json, documents.json, tests.json, test_results.json, users.json,
     departments.json, positions.json, lessons.json, trainings.json, settings.json,
     landing_results.json (nomzodlarning landing test natijalari),
-    final_results.json (yakuniy bilim testi natijalari)
+    final_results.json (yakuniy bilim testi natijalari),
+    final_participants.json (yakuniy testdan oldin ro‘yxatdan o‘tgan ishtirokchilar)
 
 - Yozuvlar frontend bilan bir xil camelCase ko‘rinishida saqlanadi (fayllarni ochib o‘qish oson).
 - Yozish atomik: avval vaqtinchalik faylga, keyin os.replace — server to‘satdan o‘chsa ham fayl buzilmaydi.
@@ -32,6 +33,7 @@ COLLECTIONS = {
     "settings": "settings.json",
     "landing_results": "landing_results.json",
     "final_results": "final_results.json",
+    "final_participants": "final_participants.json",
 }
 
 _lock = threading.RLock()

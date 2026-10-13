@@ -196,10 +196,23 @@ class LandingSubmitIn(In):
 
 
 # ---------- Yakuniy bilim testi (ochiq, /test/yakuniy) ----------
+class FinalRegisterIn(In):
+    """Testdan oldingi ro‘yxatdan o‘tish: ism, familiya, yosh, tug‘ilgan sana (tekshiruv — final_test.validate_participant)."""
+    first_name: str = Field(max_length=200)
+    last_name: str = Field(max_length=200)
+    age: Any = None
+    birth_date: str = Field(default="", max_length=20)
+    client_id: str | None = Field(default=None, max_length=64)  # ikki marta bosilsa — bitta ishtirokchi
+
+    _strip_text = field_validator("first_name", "last_name", "birth_date", mode="before")(_strip)
+
+
 class FinalSubmitIn(In):
     answers: dict[str, Any]
     duration_sec: int | None = Field(default=None, ge=0, le=86400)
     client_id: str | None = Field(default=None, max_length=64)  # takroriy yuborishdan himoya
+    participant_id: int | None = None  # /register javobidagi id
+    participant_key: str | None = Field(default=None, max_length=128)  # /register javobidagi maxfiy kalit
 
 
 # ---------- Hujjatlar ----------

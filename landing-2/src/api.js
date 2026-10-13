@@ -1,7 +1,8 @@
 /**
  * Backend bilan aloqa (HR CRM backendi, login talab qilinmaydigan ochiq endpointlar):
  *   GET  /public/final-test            20 ta savol — to‘g‘ri javoblarsiz (havola/token talab qilinmaydi)
- *   POST /public/final-test/submit     { answers, durationSec, clientId } — tekshirish va ball backendda
+ *   POST /public/final-test/register   { firstName, lastName, age, birthDate, clientId } → { participant: { id, key, ... } }
+ *   POST /public/final-test/submit     { participantId, participantKey, answers, durationSec, clientId } — ball backendda
  */
 const BASE_URL = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/, '')
 
@@ -40,5 +41,6 @@ async function request(path, { method = 'GET', body } = {}) {
 
 export const finalApi = {
   open: () => request('/public/final-test'),
+  register: (body) => request('/public/final-test/register', { method: 'POST', body }),
   submit: (body) => request('/public/final-test/submit', { method: 'POST', body }),
 }

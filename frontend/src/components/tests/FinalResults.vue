@@ -15,7 +15,7 @@ import FinalResultDetails from './FinalResultDetails.vue'
 import { FINAL_RESULT_LABELS, isPassed, participantName, useFinalTestStore } from '@/stores/finalTest'
 import { useToast } from '@/composables/useToast'
 import { usePagination } from '@/composables/usePagination'
-import { formatDateTime } from '@/utils/date'
+import { formatDate, formatDateTime } from '@/utils/date'
 import { downloadCsv, normalizeText } from '@/utils/format'
 
 /** Yakuniy bilim testi (/test/yakuniy): har bir topshirish — alohida qator */
@@ -39,12 +39,22 @@ const statusTabs = computed(() => [
   { value: 'passed', label: 'Testdan o‘tdi', count: store.stats.passed },
   { value: 'failed', label: 'Testdan o‘tmadi', count: store.stats.failed },
 ])
+/** Ism ostidagi qisqa ma'lumot: yosh, tug‘ilgan sana, lavozim (eski yozuvlar), urinishlar soni */
+function subline(r) {
+  return [
+    r.age || r.age === 0 ? `${r.age} yosh` : '',
+    r.birthDate ? `t.s. ${formatDate(r.birthDate)}` : '',
+    r.position,
+    r.attempts > 1 ? `${r.attempts} ta urinish` : '',
+  ].filter(Boolean).join(' · ')
+}
+
 const filtered = computed(() => {
   const q = normalizeText(search.value)
   return store.rows.filter(
     (r) =>
       (!status.value || (status.value === 'passed') === isPassed(r)) &&
-      (!q || normalizeText(`${r.name} ${r.position || ''} ${r.participantNo || r.id}`).includes(q)),
+      (!q || normalizeText(`${r.name} ${r.firstName || ''} ${r.lastName || ''} ${r.position || ''} ${r.participantNo || r.id}`).includes(q)),
   )
 })
 const { page, paged, total, pageSize } = usePagination(filtered, 10, () => [search.value, status.value])
@@ -70,8 +80,12 @@ function exportCsv() {
   const rows = [...store.results].sort((a, b) => (a.submittedAt || '').localeCompare(b.submittedAt || ''))
   downloadCsv(
     `yakuniy-test-${new Date().toISOString().slice(0, 10)}.csv`,
-    ['Ishtirokchi', 'Lavozim', 'Topshirgan sana', 'To‘g‘ri', 'Xato', 'Ball', 'Foiz', 'Holati', 'Sarflangan vaqt (son)'],
-    rows.map((r) => [participantName(r), r.position, formatDateTime(r.submittedAt), r.correct, r.wrong, `${r.correct}/${r.total}`, `${r.percent}%`, FINAL_RESULT_LABELS[r.status], r.durationSec ?? '']),
+    ['Ishtirokchi', 'Familiya', 'Ism', 'Yosh', 'Tug‘ilgan sana', 'Lavozim', 'Test', 'Urinish', 'Topshirgan sana', 'To‘g‘ri', 'Xato', 'Ball', 'Foiz', 'Holati', 'Sarflangan vaqt (son)'],
+    rows.map((r) => [
+      participantName(r), r.lastName || '', r.firstName || '', r.age ?? '', r.birthDate ? formatDate(r.birthDate) : '', r.position,
+      r.testTitle || '', r.attemptNo ?? '', formatDateTime(r.submittedAt), r.correct, r.wrong, `${r.correct}/${r.total}`, `${r.percent}%`,
+      FINAL_RESULT_LABELS[r.status], r.durationSec ?? '',
+    ]),
   )
 }
 </script>
@@ -83,7 +97,7 @@ function exportCsv() {
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-md shadow-primary-600/25"><GraduationCap class="h-5 w-5" /></span>
       <div class="min-w-0 flex-1">
         <p class="text-sm font-semibold text-ink">Yakuniy bilim testi — {{ store.info?.questions ?? 20 }} ta savol, o‘tish: 16–20 ball</p>
-        <p class="text-[13px] text-muted">Ochiq test — havola yoki ism talab qilinmaydi: <span class="break-all font-medium text-primary-700">{{ publicUrl }}</span></p>
+        <p class="text-[13px] text-muted">Ochiq test — ishtirokchi avval ism, familiya, yosh va tug‘ilgan sanani kiritadi: <span class="break-all font-medium text-primary-700">{{ publicUrl }}</span></p>
       </div>
       <div class="flex flex-wrap gap-2">
         <Button variant="secondary" size="sm" :icon="Copy" @click="copyLink">Nusxalash</Button>
@@ -131,7 +145,7 @@ function exportCsv() {
                     <Avatar :name="r.fullName || `# ${r.participantNo ?? r.id}`" size="sm" />
                     <div class="min-w-0">
                       <p class="font-medium text-ink group-hover:text-primary-700">{{ r.name }}</p>
-                      <p v-if="r.position || r.attempts > 1" class="text-xs text-muted">{{ [r.position, r.attempts > 1 ? `${r.attempts} ta urinish` : ''].filter(Boolean).join(' · ') }}</p>
+                      <p v-if="subline(r)" class="text-xs text-muted">{{ subline(r) }}</p>
                     </div>
                   </div>
                 </td>
@@ -168,6 +182,7 @@ function exportCsv() {
                   <span class="truncate font-medium text-ink">{{ r.name }}</span>
                   <StatusBadge :status="isPassed(r) ? 'O‘tdi' : 'O‘tmadi'" :label="FINAL_RESULT_LABELS[r.status]" size="sm" />
                 </span>
+                <span v-if="subline(r)" class="mt-0.5 block truncate text-xs text-muted">{{ subline(r) }}</span>
                 <span class="mt-1 flex flex-wrap gap-x-4 text-xs tabular-nums text-muted">
                   <span><b class="text-ink">{{ r.correct }}/{{ r.total }}</b> ball · {{ r.percent }}%</span>
                   <span>{{ formatDateTime(r.submittedAt) }}</span>

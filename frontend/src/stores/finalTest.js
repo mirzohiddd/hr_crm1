@@ -2,12 +2,18 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { finalTestApi } from '@/api/finalTest'
 
-/** Ishtirokchi nomi: xodim bo‘lsa F.I.Sh., ochiq testda — "Ishtirokchi #N" */
+/** Ishtirokchi nomi: ro‘yxatdan o‘tgan bo‘lsa — "Familiya Ism", eski (ismsiz) yozuvlarda — "Ishtirokchi #N" */
 export const participantName = (r) => r?.fullName || `Ishtirokchi #${r?.participantNo ?? r?.id ?? '—'}`
 
 /** Holat nomlari (eski yozuvlardagi "Yiqildi" ham "Testdan o‘tmadi" deb ko‘rsatiladi) */
 export const FINAL_RESULT_LABELS = { 'O‘tdi': 'Testdan o‘tdi', 'O‘tmadi': 'Testdan o‘tmadi', Yiqildi: 'Testdan o‘tmadi' }
 export const isPassed = (r) => r?.status === 'O‘tdi'
+
+/**
+ * Bir kishining urinishlarini guruhlash kaliti: xodim (employeeId) yoki ro‘yxatdan o‘tgan ishtirokchi (participantId).
+ * Ikkalasi ham bo‘lmasa (eski yozuvlar) — har bir topshirish alohida.
+ */
+const personKey = (r) => (r?.employeeId ? `e${r.employeeId}` : r?.participantId ? `p${r.participantId}` : null)
 
 /** Yakuniy bilim testi: barcha topshirishlar (backend/data/final_results.json) */
 export const useFinalTestStore = defineStore('finalTest', () => {
@@ -37,23 +43,25 @@ export const useFinalTestStore = defineStore('finalTest', () => {
     results.value = results.value.filter((r) => r.id !== id)
   }
 
-  /** Bitta xodimning barcha urinishlari (ochiq testda — faqat shu yozuvning o‘zi) */
+  /** Bitta kishining (xodim yoki ishtirokchi) barcha urinishlari; eski ismsiz yozuvda — faqat shu yozuvning o‘zi */
   function attemptsFor(resultId) {
     const row = results.value.find((r) => r.id === resultId)
     if (!row) return []
-    if (!row.employeeId) return [row]
-    return results.value.filter((r) => r.employeeId === row.employeeId).sort((a, b) => a.attemptNo - b.attemptNo)
+    const key = personKey(row)
+    if (!key) return [row]
+    return results.value.filter((r) => personKey(r) === key).sort((a, b) => a.attemptNo - b.attemptNo || a.id - b.id)
   }
 
-  /** Ro‘yxat: har bir topshirish — alohida qator (xodim bo‘lsa — oxirgi urinishi, urinishlar soni bilan) */
+  /** Ro‘yxat: har bir kishi — bitta qator (oxirgi urinishi, urinishlar soni bilan); eski ismsiz yozuvlar — alohida */
   const rows = computed(() => {
-    const seenEmployees = new Set()
+    const seen = new Set()
     const out = []
     for (const r of [...results.value].sort((a, b) => (b.submittedAt || '').localeCompare(a.submittedAt || '') || b.id - a.id)) {
-      if (r.employeeId) {
-        if (seenEmployees.has(r.employeeId)) continue
-        seenEmployees.add(r.employeeId)
-        out.push({ ...r, name: participantName(r), attempts: results.value.filter((x) => x.employeeId === r.employeeId).length })
+      const key = personKey(r)
+      if (key) {
+        if (seen.has(key)) continue
+        seen.add(key)
+        out.push({ ...r, name: participantName(r), attempts: results.value.filter((x) => personKey(x) === key).length })
       } else {
         out.push({ ...r, name: participantName(r), attempts: 1 })
       }

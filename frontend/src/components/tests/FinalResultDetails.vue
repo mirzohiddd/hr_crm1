@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { AlertCircle, Briefcase, CalendarDays, Check, CheckCircle2, Clock, Hash, RotateCcw, Trash2, X, XCircle } from 'lucide-vue-next'
+import { AlertCircle, Briefcase, Cake, CalendarClock, CalendarDays, Check, CheckCircle2, ClipboardList, Clock, Hash, RotateCcw, Trash2, UserRound, X, XCircle } from 'lucide-vue-next'
 import Modal from '@/components/ui/Modal.vue'
 import Button from '@/components/ui/Button.vue'
 import Avatar from '@/components/ui/Avatar.vue'
@@ -9,7 +9,7 @@ import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
 import { finalTestApi } from '@/api/finalTest'
 import { FINAL_RESULT_LABELS, isPassed, participantName, useFinalTestStore } from '@/stores/finalTest'
-import { formatDateTime } from '@/utils/date'
+import { formatDate, formatDateTime } from '@/utils/date'
 
 /** Yakuniy test natijasi: 20 ta savol, A/B/C/D variantlar, tanlangan javob, to‘g‘ri javob va har bir savol natijasi */
 const props = defineProps({
@@ -71,6 +71,15 @@ const filterTabs = computed(() => [
 ])
 const passed = computed(() => isPassed(detail.value))
 const title = computed(() => participantName(detail.value || attempts.value.at(-1)))
+// Ishtirokchi ma'lumotlari: natijadagi nusxa (topshirish paytidagi), bo‘lmasa — ishtirokchi yozuvi
+const person = computed(() => {
+  const d = detail.value || {}
+  const p = d.participant || {}
+  return {
+    age: d.age ?? p.age ?? null,
+    birthDate: d.birthDate || p.birthDate || '',
+  }
+})
 const duration = computed(() => {
   const s = detail.value?.durationSec
   return s || s === 0 ? `${Math.floor(s / 60)} daq ${s % 60} son` : '—'
@@ -113,10 +122,14 @@ const letterClass = (q, i) => {
     <template v-else-if="detail">
       <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
         <dl class="grid grid-cols-2 gap-3 text-sm">
-          <div class="info"><dt><Hash class="h-3.5 w-3.5" /> Ishtirokchi</dt><dd>{{ title }}</dd></div>
-          <div class="info"><dt><Briefcase class="h-3.5 w-3.5" /> Lavozim</dt><dd>{{ detail.position || 'Ko‘rsatilmagan' }}</dd></div>
-          <div class="info"><dt><CalendarDays class="h-3.5 w-3.5" /> Topshirildi</dt><dd>{{ formatDateTime(detail.submittedAt) }}</dd></div>
+          <div class="info col-span-2"><dt><UserRound class="h-3.5 w-3.5" /> Ism-familiya</dt><dd :title="title">{{ title }}</dd></div>
+          <div class="info"><dt><Cake class="h-3.5 w-3.5" /> Yosh</dt><dd>{{ person.age !== null ? `${person.age} yosh` : 'Ko‘rsatilmagan' }}</dd></div>
+          <div class="info"><dt><CalendarDays class="h-3.5 w-3.5" /> Tug‘ilgan sana</dt><dd>{{ person.birthDate ? formatDate(person.birthDate) : 'Ko‘rsatilmagan' }}</dd></div>
+          <div class="info col-span-2"><dt><ClipboardList class="h-3.5 w-3.5" /> Test nomi</dt><dd :title="detail.testTitle">{{ detail.testTitle || 'Yakuniy bilim testi' }}</dd></div>
+          <div class="info"><dt><CalendarClock class="h-3.5 w-3.5" /> Topshirildi</dt><dd>{{ formatDateTime(detail.submittedAt) }}</dd></div>
           <div class="info"><dt><Clock class="h-3.5 w-3.5" /> Sarflangan vaqt</dt><dd>{{ duration }}</dd></div>
+          <div class="info"><dt><Hash class="h-3.5 w-3.5" /> Ishtirokchi ID</dt><dd>{{ detail.participantId ? `#${detail.participantId}` : `Natija #${detail.participantNo ?? detail.id}` }}</dd></div>
+          <div v-if="detail.position" class="info"><dt><Briefcase class="h-3.5 w-3.5" /> Lavozim</dt><dd>{{ detail.position }}</dd></div>
         </dl>
         <div :class="['rounded-2xl border p-4', passed ? 'border-emerald-100 bg-emerald-50/60' : 'border-red-100 bg-red-50/60']">
           <div class="flex items-center justify-between gap-3">

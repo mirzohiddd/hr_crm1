@@ -1,15 +1,17 @@
 <script setup>
 /**
  * Yakuniy bilim testi (7 kunlik darslardan keyin): /test/yakuniy
- * - Sahifaga kirish bilan 1-savol chiqadi: havola, token, ism kiritish va "Testni boshlash" yo‘q.
+ * - 1-bosqich: ism, familiya, yosh va tug‘ilgan sana. Backend tekshiradi (POST /public/final-test/register)
+ *   va ishtirokchi id + maxfiy kalit qaytaradi. Shundan keyingina savollar ochiladi.
  * - Javob tanlangach keyingi savolga avtomatik o‘tiladi; oldingi savolga qaytib javobni o‘zgartirish mumkin.
- * - 20-savoldan keyin "Testni yakunlash" — javoblar backendga yuboriladi, ball faqat backendda hisoblanadi.
- * - To‘g‘ri javoblar kaliti frontendga yuborilmaydi. Natija HR CRM → Testlar → "Yakuniy bilim testi" da.
+ * - 20-savoldan keyin "Testni yakunlash" — javoblar ishtirokchi id/kaliti bilan backendga yuboriladi,
+ *   ball faqat backendda hisoblanadi. Natija HR CRM → Testlar → "Yakuniy bilim testi" da ism-familiya bilan.
+ * - Sahifa yangilansa: kiritilgan ma'lumotlar, ishtirokchi va tugallanmagan javoblar localStorage dan tiklanadi.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
-  AlertCircle, ArrowLeft, ArrowRight, Award, BookOpenCheck, CalendarClock, Check, CheckCircle2, Clock,
-  Flag, GraduationCap, Keyboard, ListChecks, Loader2, RotateCcw, Target, XCircle,
+  AlertCircle, ArrowLeft, ArrowRight, Award, BookOpenCheck, Cake, CalendarClock, CalendarDays, Check, CheckCircle2, Clock,
+  Flag, GraduationCap, Keyboard, ListChecks, Loader2, RotateCcw, ShieldCheck, Target, UserRound, XCircle,
 } from 'lucide-vue-next'
 import BrandLogo from '@/components/BrandLogo.vue'
 import ChoiceAnswer from '@/components/ChoiceAnswer.vue'
@@ -19,6 +21,13 @@ import { finalApi } from '@/api'
 const LETTERS = 'ABCDEFGH'
 const DRAFT_KEY = 'hr-crm:yakuniy:draft'
 const RESULT_KEY = 'hr-crm:yakuniy:result'
+const FORM_KEY = 'hr-crm:yakuniy:form'
+const PARTICIPANT_KEY = 'hr-crm:yakuniy:participant'
+
+// Backend bilan bir xil qoidalar (backend/app/final_test.py → validate_participant)
+const AGE_MIN = 16
+const AGE_MAX = 70
+const NAME_RE = /^\p{L}[\p{L}\p{M}' \-ʻʼ‘’`]*$/u
 
 function newId() {
   try {
@@ -52,11 +61,43 @@ const storage = {
   },
 }
 
+// ---------- Sana yordamchilari (mahalliy sana bo‘yicha) ----------
+function todayISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+/** 'YYYY-MM-DD' → { y, m, d } yoki null (mavjud bo‘lmagan sana — null) */
+function parseISO(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''))
+  if (!m) return null
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])]
+  const dt = new Date(y, mo - 1, d)
+  return dt.getFullYear() === y && dt.getMonth() === mo - 1 && dt.getDate() === d ? { y, m: mo, d } : null
+}
+/** Tug‘ilgan sanadan bugungi to‘liq yosh */
+function ageFrom(iso) {
+  const b = parseISO(iso)
+  const t = parseISO(todayISO())
+  if (!b || !t) return null
+  return t.y - b.y - (t.m < b.m || (t.m === b.m && t.d < b.d) ? 1 : 0)
+}
+const cleanName = (v) => String(v ?? '').replace(/\s+/g, ' ').trim()
+const formatBirth = (iso) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : '')
+
 // ---------- Holat ----------
 const loading = ref(true)
 const loadError = ref('')
 const test = ref(null)
-const phase = ref('quiz') // quiz | result
+const phase = ref('register') // register | quiz | result
+
+// 1-bosqich: ishtirokchi ma'lumotlari
+const form = reactive({ firstName: '', lastName: '', age: '', birthDate: '' })
+const errors = ref({})
+const participant = ref(null) // { id, key, firstName, lastName, fullName, age, birthDate }
+const registering = ref(false)
+const registerError = ref('')
+const regClientId = ref(newId())
+const maxBirth = todayISO()
 const answers = reactive({})
 const current = ref(0)
 const direction = ref(1)
@@ -79,14 +120,22 @@ const allAnswered = computed(() => total.value > 0 && firstUnanswered.value === 
 const reachable = (i) => allAnswered.value || i <= firstUnanswered.value
 const passNeeded = computed(() => Math.ceil(((test.value?.passPercent ?? 80) / 100) * (total.value || 20)))
 
+function saveDraft() {
+  if (phase.value === 'quiz' && test.value) {
+    storage.set(localStorage, DRAFT_KEY, {
+      answers, current: current.value, startedAt: startedAt.value, clientId: clientId.value, participantId: participant.value?.id ?? null,
+    })
+  }
+}
+watch([current, () => ({ ...answers })], saveDraft, { deep: true })
+
+// Kiritilgan ma'lumotlar sahifa yangilanganda yo‘qolmasin; ma'lumot o‘zgarsa — yangi ro‘yxatdan o‘tish so‘rovi id si
 watch(
-  [current, () => ({ ...answers })],
-  () => {
-    if (phase.value === 'quiz' && test.value) {
-      storage.set(localStorage, DRAFT_KEY, { answers, current: current.value, startedAt: startedAt.value, clientId: clientId.value })
-    }
+  () => ({ ...form }),
+  (value, old) => {
+    storage.set(localStorage, FORM_KEY, value)
+    if (old && ['firstName', 'lastName', 'age', 'birthDate'].some((k) => value[k] !== old[k])) regClientId.value = newId()
   },
-  { deep: true },
 )
 
 async function load() {
@@ -96,7 +145,17 @@ async function load() {
     const data = await finalApi.open()
     test.value = data.test
     document.title = `${data.test.title} — HR+`
-    // Sahifa yangilansa — natija yoki tugallanmagan javoblar qayta tiklanadi
+    // Sahifa yangilansa — natija, ishtirokchi, kiritilgan ma'lumotlar va tugallanmagan javoblar qayta tiklanadi
+    const savedParticipant = storage.get(localStorage, PARTICIPANT_KEY)
+    if (savedParticipant?.id && savedParticipant?.key) participant.value = savedParticipant
+    const savedForm = storage.get(localStorage, FORM_KEY)
+    const src = savedForm || participant.value
+    if (src) {
+      Object.assign(form, {
+        firstName: String(src.firstName ?? ''), lastName: String(src.lastName ?? ''),
+        age: src.age === null || src.age === undefined ? '' : String(src.age), birthDate: String(src.birthDate ?? ''),
+      })
+    }
     const saved = storage.get(sessionStorage, RESULT_KEY)
     if (saved?.result) {
       result.value = saved.result
@@ -112,6 +171,8 @@ async function load() {
       startedAt.value = draft.startedAt || Date.now()
       clientId.value = draft.clientId || clientId.value
     }
+    // Test boshlangan bo‘lsa (shu ishtirokchi bilan) — to‘g‘ridan-to‘g‘ri savollarga qaytiladi
+    if (participant.value && draft && draft.participantId === participant.value.id) phase.value = 'quiz'
   } catch (e) {
     loadError.value = e.message || 'Testni yuklab bo‘lmadi'
   } finally {
@@ -119,6 +180,110 @@ async function load() {
   }
 }
 onMounted(load)
+
+// ---------- 1-bosqich: ro‘yxatdan o‘tish ----------
+const computedAge = computed(() => {
+  const a = ageFrom(form.birthDate)
+  return a !== null && a >= 0 && form.birthDate <= maxBirth ? a : null
+})
+function onBirthInput() {
+  clearError('birthDate')
+  // Yosh tug‘ilgan sanadan avtomatik hisoblanadi (foydalanuvchi o‘zgartirsa — moslik tekshiriladi)
+  if (computedAge.value !== null) {
+    form.age = String(computedAge.value)
+    clearError('age')
+  }
+}
+function onAgeInput(e) {
+  form.age = String(e.target.value || '').replace(/\D/g, '').slice(0, 3)
+  e.target.value = form.age
+  clearError('age')
+}
+function clearError(key) {
+  registerError.value = ''
+  if (errors.value[key]) {
+    const next = { ...errors.value }
+    delete next[key]
+    errors.value = next
+  }
+}
+function nameError(value, label) {
+  const v = cleanName(value)
+  if (!v) return `${label}ni kiriting`
+  if (v.length < 2) return `${label} kamida 2 ta harfdan iborat bo‘lsin`
+  if (v.length > 50) return `${label} 50 ta belgidan oshmasin`
+  if (!NAME_RE.test(v)) return `${label}da faqat harflar, tutuq belgisi (ʻ) va chiziqcha (-) bo‘lishi mumkin`
+  return ''
+}
+function validateForm() {
+  const e = {}
+  const first = nameError(form.firstName, 'Ism')
+  const last = nameError(form.lastName, 'Familiya')
+  if (first) e.firstName = first
+  if (last) e.lastName = last
+
+  if (!form.birthDate) e.birthDate = 'Tug‘ilgan sanani tanlang'
+  else if (!parseISO(form.birthDate)) e.birthDate = 'Bunday sana mavjud emas'
+  else if (form.birthDate > maxBirth) e.birthDate = 'Tug‘ilgan sana kelajakdagi sana bo‘lishi mumkin emas'
+  else if (form.birthDate < '1900-01-01') e.birthDate = 'Tug‘ilgan sana noto‘g‘ri'
+
+  const ageText = String(form.age ?? '').trim()
+  const age = Number(ageText)
+  if (!ageText) e.age = 'Yoshingizni kiriting'
+  else if (!/^\d{1,3}$/.test(ageText)) e.age = 'Yosh butun son bo‘lishi kerak'
+  else if (age < AGE_MIN || age > AGE_MAX) e.age = `Yosh ${AGE_MIN} dan ${AGE_MAX} gacha bo‘lishi kerak`
+  else if (!e.birthDate && computedAge.value !== null && computedAge.value !== age) {
+    e.age = `Yosh tug‘ilgan sanaga mos emas: tug‘ilgan sanaga ko‘ra ${computedAge.value} yosh`
+  }
+  errors.value = e
+  return !Object.keys(e).length
+}
+function focusFirstError() {
+  nextTick(() => {
+    const first = ['firstName', 'lastName', 'birthDate', 'age'].find((k) => errors.value[k])
+    if (first) document.getElementById(`reg-${first}`)?.focus()
+  })
+}
+const normalizedForm = () => ({
+  firstName: cleanName(form.firstName),
+  lastName: cleanName(form.lastName),
+  age: Number(form.age),
+  birthDate: form.birthDate,
+})
+const sameParticipant = (p, f) => !!p && ['firstName', 'lastName', 'age', 'birthDate'].every((k) => p[k] === f[k])
+
+async function startTest() {
+  if (registering.value) return
+  registerError.value = ''
+  if (!validateForm()) return focusFirstError()
+  const data = normalizedForm()
+  // Ma'lumotlar o‘zgarmagan bo‘lsa — avvalgi ishtirokchi (qayta topshirish — keyingi urinish sifatida saqlanadi)
+  if (!sameParticipant(participant.value, data)) {
+    registering.value = true
+    try {
+      const res = await finalApi.register({ ...data, clientId: regClientId.value })
+      participant.value = res.participant
+      storage.set(localStorage, PARTICIPANT_KEY, res.participant)
+      regClientId.value = newId()
+    } catch (e) {
+      if (e.status === 400) registerError.value = e.message
+      else if (e.status === 409) {
+        regClientId.value = newId()
+        registerError.value = 'Ma’lumotlar o‘zgargan. “Testni boshlash” ni qayta bosing.'
+      } else registerError.value = e.message || 'Ma’lumotlarni yuborib bo‘lmadi. Qayta urinib ko‘ring.'
+      return
+    } finally {
+      registering.value = false
+    }
+  }
+  Object.assign(form, { firstName: data.firstName, lastName: data.lastName })
+  // Hali birorta savolga javob berilmagan bo‘lsa — vaqt shu daqiqadan hisoblanadi
+  if (!answeredCount.value) startedAt.value = Date.now()
+  submitError.value = ''
+  phase.value = 'quiz'
+  saveDraft()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
 
 // ---------- Navigatsiya ----------
 let advanceTimer = null
@@ -177,20 +342,36 @@ async function finish() {
     go(firstUnanswered.value)
     return
   }
+  if (!participant.value) {
+    phase.value = 'register'
+    registerError.value = 'Avval shaxsiy ma’lumotlaringizni kiriting.'
+    return
+  }
+  if (submitting.value) return
   submitting.value = true
   try {
     const res = await finalApi.submit({
+      participantId: participant.value.id,
+      participantKey: participant.value.key,
       answers: { ...answers },
       durationSec: Math.round((Date.now() - startedAt.value) / 1000),
       clientId: clientId.value,
     })
-    result.value = res.result
+    result.value = { ...res.result, fullName: res.result.fullName || participant.value.fullName }
     phase.value = 'result'
-    storage.set(sessionStorage, RESULT_KEY, { result: res.result })
+    storage.set(sessionStorage, RESULT_KEY, { result: result.value })
     storage.remove(localStorage, DRAFT_KEY)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (e) {
-    submitError.value = e.message || 'Yuborib bo‘lmadi. Qayta urinib ko‘ring.'
+    if (e.status === 403) {
+      // Ishtirokchi serverda topilmadi (masalan, ma'lumotlar tozalangan) — javoblar saqlanadi, ma'lumotlar qayta kiritiladi
+      participant.value = null
+      storage.remove(localStorage, PARTICIPANT_KEY)
+      phase.value = 'register'
+      registerError.value = `${e.message} Javoblaringiz saqlanib qoldi.`
+    } else {
+      submitError.value = e.message || 'Yuborib bo‘lmadi. Qayta urinib ko‘ring.'
+    }
   } finally {
     submitting.value = false
   }
@@ -206,7 +387,10 @@ function restart() {
   startedAt.value = Date.now()
   clientId.value = newId()
   submitError.value = ''
-  phase.value = 'quiz'
+  registerError.value = ''
+  errors.value = {}
+  // Qayta topshirish ham ma'lumotlarni tasdiqlashdan boshlanadi (o‘zgartirilsa — yangi ishtirokchi)
+  phase.value = 'register'
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
@@ -269,6 +453,10 @@ const formatDT = (v) => (v ? `${v.slice(8, 10)}.${v.slice(5, 7)}.${v.slice(0, 4)
         </header>
 
         <div v-if="phase === 'quiz' && test" class="mt-4">
+          <p v-if="participant" class="mb-3 inline-flex max-w-full items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm ring-1 ring-line">
+            <UserRound class="h-3.5 w-3.5 shrink-0 text-primary-600" />
+            <span class="truncate">{{ participant.fullName }} · {{ participant.age }} yosh</span>
+          </p>
           <div class="h-2 overflow-hidden rounded-full bg-primary-100/70" role="progressbar" :aria-valuenow="answeredCount" aria-valuemin="0" :aria-valuemax="total" :aria-label="`${answeredCount} / ${total} savolga javob berildi`">
             <div class="progress-fill h-full rounded-full" :style="{ width: `${progress}%` }" />
           </div>
@@ -293,8 +481,75 @@ const formatDT = (v) => (v ? `${v.slice(8, 10)}.${v.slice(5, 7)}.${v.slice(0, 4)
           </div>
 
           <Transition v-else name="phase" mode="out-in">
+            <!-- ================= 1-bosqich: shaxsiy ma'lumotlar ================= -->
+            <section v-if="phase === 'register'" key="register" class="reveal">
+              <form class="panel mx-auto max-w-2xl p-5 sm:p-8" novalidate @submit.prevent="startTest">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-primary-600">1-bosqich</p>
+                    <h1 class="mt-1 text-xl font-semibold tracking-tight sm:text-2xl">Shaxsiy ma’lumotlar</h1>
+                    <p class="mt-1.5 text-sm leading-relaxed text-slate-600">Test natijasi shu ma’lumotlar bilan HR bo‘limiga yuboriladi. Barcha maydonlar majburiy.</p>
+                  </div>
+                  <span class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-lg shadow-primary-600/25"><UserRound class="h-6 w-6" /></span>
+                </div>
+
+                <div class="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div class="field">
+                    <label class="form-label" for="reg-firstName">Ism <span class="text-red-500">*</span></label>
+                    <div class="input-wrap">
+                      <UserRound class="input-icon" />
+                      <input id="reg-firstName" v-model="form.firstName" class="form-input has-icon" :class="{ 'has-error': errors.firstName }" placeholder="Masalan: Aziz" autocomplete="given-name" maxlength="50" :aria-invalid="!!errors.firstName" aria-describedby="err-firstName" @input="clearError('firstName')" />
+                    </div>
+                    <p v-if="errors.firstName" id="err-firstName" class="form-error">{{ errors.firstName }}</p>
+                  </div>
+                  <div class="field">
+                    <label class="form-label" for="reg-lastName">Familiya <span class="text-red-500">*</span></label>
+                    <div class="input-wrap">
+                      <UserRound class="input-icon" />
+                      <input id="reg-lastName" v-model="form.lastName" class="form-input has-icon" :class="{ 'has-error': errors.lastName }" placeholder="Masalan: Karimov" autocomplete="family-name" maxlength="50" :aria-invalid="!!errors.lastName" aria-describedby="err-lastName" @input="clearError('lastName')" />
+                    </div>
+                    <p v-if="errors.lastName" id="err-lastName" class="form-error">{{ errors.lastName }}</p>
+                  </div>
+                  <div class="field">
+                    <label class="form-label" for="reg-birthDate">Tug‘ilgan sana <span class="text-red-500">*</span></label>
+                    <div class="input-wrap">
+                      <CalendarDays class="input-icon" />
+                      <input id="reg-birthDate" v-model="form.birthDate" class="form-input has-icon" :class="{ 'has-error': errors.birthDate }" type="date" min="1900-01-01" :max="maxBirth" autocomplete="bday" :aria-invalid="!!errors.birthDate" aria-describedby="err-birthDate" @input="onBirthInput" @change="onBirthInput" />
+                    </div>
+                    <p v-if="errors.birthDate" id="err-birthDate" class="form-error">{{ errors.birthDate }}</p>
+                  </div>
+                  <div class="field">
+                    <label class="form-label" for="reg-age">Yosh <span class="text-red-500">*</span></label>
+                    <div class="input-wrap">
+                      <Cake class="input-icon" />
+                      <input id="reg-age" :value="form.age" class="form-input has-icon" :class="{ 'has-error': errors.age }" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" placeholder="25" :aria-invalid="!!errors.age" aria-describedby="err-age" @input="onAgeInput" />
+                    </div>
+                    <p v-if="errors.age" id="err-age" class="form-error">{{ errors.age }}</p>
+                    <p v-else-if="computedAge !== null" class="mt-1.5 text-xs text-muted">Tug‘ilgan sanadan avtomatik hisoblandi</p>
+                  </div>
+                </div>
+
+                <p v-if="registerError" class="mt-5 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+                  <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" /> {{ registerError }}
+                </p>
+
+                <ul class="mt-6 grid gap-2 rounded-2xl bg-primary-50/60 p-3 text-[13px] text-slate-600 sm:grid-cols-3">
+                  <li class="flex items-center gap-2"><ListChecks class="h-4 w-4 shrink-0 text-primary-600" /> {{ total || 20 }} ta savol</li>
+                  <li class="flex items-center gap-2"><Target class="h-4 w-4 shrink-0 text-primary-600" /> O‘tish: {{ passNeeded }} ta to‘g‘ri</li>
+                  <li class="flex items-center gap-2"><Clock class="h-4 w-4 shrink-0 text-primary-600" /> Vaqt boshlashdan hisoblanadi</li>
+                </ul>
+
+                <button type="submit" class="btn-primary btn-lg group mt-6 w-full" :disabled="registering">
+                  <Loader2 v-if="registering" class="h-4 w-4 animate-spin" />
+                  {{ registering ? 'Tekshirilmoqda...' : answeredCount ? 'Testni davom ettirish' : 'Testni boshlash' }}
+                  <ArrowRight v-if="!registering" class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </button>
+                <p class="mt-3 flex items-center justify-center gap-1.5 text-xs text-muted"><ShieldCheck class="h-3.5 w-3.5" /> Ma’lumotlaringiz faqat HR bo‘limiga ko‘rinadi</p>
+              </form>
+            </section>
+
             <!-- ================= Savollar ================= -->
-            <section v-if="phase === 'quiz'" key="quiz">
+            <section v-else-if="phase === 'quiz'" key="quiz">
               <!-- Savollar raqamlari: javob berilganlar belgilangan, oldingilarga qaytish mumkin -->
               <div class="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
                 <div class="grid w-max grid-flow-col gap-1.5 sm:w-full sm:grid-flow-row sm:grid-cols-10">
@@ -371,6 +626,7 @@ const formatDT = (v) => (v ? `${v.slice(8, 10)}.${v.slice(5, 7)}.${v.slice(0, 4)
                   {{ passed ? 'Testdan o‘tdi' : 'Testdan o‘tmadi' }}
                 </span>
                 <h1 class="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">{{ passed ? 'Tabriklaymiz!' : 'Bu safar yetmadi' }}</h1>
+                <p v-if="result.fullName" class="mt-1 text-sm font-medium text-ink">{{ result.fullName }}</p>
                 <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">
                   <template v-if="passed">Siz yakuniy bilim testidan muvaffaqiyatli o‘tdingiz. Natija HR bo‘limiga yuborildi.</template>
                   <template v-else>O‘tish uchun kamida {{ Math.ceil((result.passPercent / 100) * result.total) }} ta to‘g‘ri javob kerak. Natija HR bo‘limiga yuborildi — mavzularni takrorlab, qayta topshirishingiz mumkin.</template>
@@ -483,6 +739,18 @@ const formatDT = (v) => (v ? `${v.slice(8, 10)}.${v.slice(5, 7)}.${v.slice(0, 4)
   @apply inline-flex h-11 select-none items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 px-5 text-sm font-semibold text-white shadow-lg shadow-primary-600/25 transition-all duration-200;
   @apply hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary-600/30 active:translate-y-0 active:scale-[0.98];
   @apply focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-500/25 disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none;
+}
+.btn-lg {
+  @apply h-12 text-[15px];
+}
+.input-wrap {
+  @apply relative;
+}
+.input-icon {
+  @apply pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400;
+}
+.form-input.has-icon {
+  @apply h-11 rounded-xl pl-9;
 }
 .btn-finish {
   @apply from-emerald-600 to-emerald-500 shadow-emerald-600/25 hover:shadow-emerald-600/30;
