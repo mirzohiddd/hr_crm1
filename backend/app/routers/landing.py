@@ -1,15 +1,20 @@
 """
 Nomzodlar uchun ochiq test (landing) va HR uchun natijalar.
 
+Joriy test (sotuv.json, format=profile): yangi kelgan xodimlar uchun 40 ta fikr, 4 bosqich × 10,
+javob 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman». Hisoblash va HR hisoboti — app/profile_test.py.
+
 Ochiq (login talab qilinmaydi):
-    GET  /public/tests/{slug}          savolnoma (baholash kalitisiz)
-    POST /public/tests/{slug}/submit   javoblarni yuborish — ball serverda hisoblanadi
+    GET  /public/tests/{slug}          savolnoma (baholash kalitisiz) + bosqichlar (stages)
+    POST /public/tests/{slug}/submit   javoblarni yuborish — hisoblash serverda.
+                                       Natija F.I.Sh. bilan saqlanadi; xodimlar ro‘yxatida F.I.Sh. mos keladigan
+                                       YAGONA xodim bo‘lsa, natija unga ham bog‘lanadi (employeeId).
 
 HR (login bilan):
     GET    /landing-tests                     savolnomalar ro‘yxati
     GET    /landing-tests/{slug}/key          baholash kaliti
     GET    /landing-results                   natijalar ro‘yxati
-    GET    /landing-results/{id}              batafsil: 20 ta savol, variantlar, tanlangan javob, ball
+    GET    /landing-results/{id}              batafsil: savollar, javoblar; profil testida — HR hisoboti (report, reportText)
     PATCH  /landing-results/{id}/viewed       "ko‘rildi" belgisi
     DELETE /landing-results/{id}
 """
@@ -20,6 +25,7 @@ from collections import defaultdict, deque
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from .. import landing
+from .. import profile_test as pt
 from ..schemas import LandingSubmitIn
 from ..security import current_user
 from ..store import get_store
@@ -59,7 +65,34 @@ def _questionnaire(slug: str) -> dict:
 SUMMARY_FIELDS = (
     "id", "testSlug", "testTitle", "fullName", "age", "date", "position", "phone", "submittedAt",
     "points", "maxPoints", "percent", "passPercent", "status", "viewed", "durationSec", "sections",
+    # Profil testi: shkalalar foizi, ishonchlilik, eng mos lavozim, bog‘langan xodim
+    "format", "scores", "reliability", "bestPosition", "employeeId",
 )
+
+
+def _norm(v) -> str:
+    return " ".join(str(v or "").replace("ʻ", "‘").replace("'", "‘").replace("`", "‘").replace("’", "‘").split()).casefold()
+
+
+def _match_employee(store, full_name: str) -> dict | None:
+    """
+    Natijani xodimga bog‘lash: F.I.Sh. dagi familiya va ism (otasining ismi ham yozilgan bo‘lsa — u ham) mos keladigan
+    xodim YAGONA bo‘lsagina. Bir nechta mos xodim bo‘lsa — bog‘lanmaydi (noto‘g‘ri bog‘lashdan himoya).
+    """
+    parts = _norm(full_name).split(" ")
+    if len(parts) < 2:
+        return None
+    last, first, middle = parts[0], parts[1], " ".join(parts[2:])
+
+    def ok(e):
+        if _norm(e.get("lastName")) != last or _norm(e.get("firstName")) != first:
+            return False
+        em = _norm(e.get("middleName"))
+        return not (middle and em) or em == middle
+
+    found = store.employees.filter()
+    found = [e for e in found if ok(e)]
+    return found[0] if len(found) == 1 else None
 
 
 def _summary(row: dict) -> dict:
@@ -81,7 +114,7 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
         existing = store.landing_results.first(lambda r: r.get("clientId") == body.client_id)
         if existing:
             return {"id": existing["id"], "submittedAt": existing["submittedAt"], "duplicate": True}
-    if q.get("positions") and body.position not in q["positions"]:
+    if q.get("positions") and body.position not in landing.position_names(q):
         raise bad_request("Lavozim noto‘g‘ri tanlangan")
     try:
         answers = landing.validate_answers(q, body.answers)
@@ -89,8 +122,10 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
         raise bad_request(str(e))
     _rate_limit(request)
 
-    result = landing.score(q, answers)
+    result = landing.score(q, answers, body.duration_sec)
+    employee = _match_employee(store, body.full_name) if landing.is_profile(q) else None
     row = store.landing_results.insert({
+        "employeeId": employee["id"] if employee else None,
         "testSlug": q["slug"],
         "testTitle": q["title"],
         "fullName": body.full_name,
@@ -115,7 +150,8 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
 @router.get("/landing-tests")
 def hr_tests():
     return [
-        {"slug": q["slug"], "title": q["title"], "questions": len(q["questions"]), "passPercent": q.get("passPercent", 80)}
+        {"slug": q["slug"], "title": q["title"], "format": q.get("format", "scale"), "questions": len(q["questions"]),
+         "passPercent": q.get("passPercent", 80), "positions": landing.position_names(q)}
         for q in landing.list_questionnaires()
     ]
 
@@ -124,6 +160,24 @@ def hr_tests():
 def hr_key(slug: str):
     q = _questionnaire(slug)
     key = landing.answer_key(q)
+    if landing.is_profile(q):
+        sid = q["sincerity"]["id"]
+        return {
+            "slug": q["slug"], "title": q["title"], "format": "profile", "options": q["options"],
+            "stageSize": q.get("stageSize", 10), "passPercent": None,
+            # Shkalalar "sections" shaklida (kalit oynasidagi jadvallar uchun) + samimiylik
+            "sections": [{"id": s["id"], "title": s["title"], "description": s.get("description", "")} for s in q["scales"]]
+                        + [{"id": sid, "title": q["sincerity"].get("title", "Samimiylik"),
+                            "description": "Ishonchlilikni tekshiradi, asosiy ko‘rsatkichlarga qo‘shilmaydi"}],
+            "pairs": q.get("pairs") or [],
+            "positions": [{"name": p["name"], "weights": p["weights"]} for p in q.get("positions") or []],
+            "rules": {
+                "sincerityPenalty": pt.SINCERITY_PENALTY, "pairPenalty": pt.PAIR_PENALTY,
+                "acquiescencePenalty": pt.ACQUIESCENCE_PENALTY, "fastPenalty": pt.FAST_PENALTY,
+                "veryFastPenalty": pt.VERY_FAST_PENALTY, "recommendMinReliability": pt.RECOMMEND_MIN_RELIABILITY,
+            },
+            "maxPoints": sum(k["maxPoints"] for k in key if not k["sincerity"]), "questions": key,
+        }
     return {
         "slug": q["slug"], "title": q["title"], "passPercent": q.get("passPercent", 80),
         "scale": q.get("scale"), "sections": q.get("sections", []),
@@ -142,6 +196,9 @@ def hr_results():
 def hr_result(result_id: int):
     row = get_or_404(get_store().landing_results, result_id, "Natija")
     row.pop("clientId", None)
+    if row.get("format") == "profile" and row.get("report"):
+        # To‘liq matnli HR hisoboti (nusxalash uchun) — saqlangan natijadan tuziladi
+        row["reportText"] = pt.report_text(row)
     return row
 
 

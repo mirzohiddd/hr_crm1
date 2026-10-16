@@ -4,7 +4,13 @@ Nomzodlar uchun ochiq test (landing) — savolnoma, baholash kaliti va hisoblash
 Savolnomalar: app/landing_tests/<slug>.json (masalan, sotuv.json).
 Natijalar:    data/landing_results.json
 
-Baholash (HR bilan kelishilgan kalit):
+Ikki format:
+- "format": "profile" (joriy sotuv.json) — yangi kelgan xodimlar uchun 40 ta fikr, 4 bosqich × 10,
+  javob 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman». Hisoblash va HR hisoboti — app/profile_test.py
+  (shkalalar, teskari va samimiylik savollari, ishonchlilik, lavozimga moslik).
+- eski format (scale/choice) — quyidagi qoidalar bo‘yicha (o‘zgarmagan).
+
+Baholash (eski format, HR bilan kelishilgan kalit):
 - scale (1–5): key=direct → ball = tanlangan raqam; key=reverse → ball = 6 - tanlangan raqam.
   Maksimal ball har savolda 5.
 - choice (A/B/C/D): har bir variantning "points" qiymati; maksimal ball — eng yuqori variant bali.
@@ -15,6 +21,9 @@ import json
 import re
 from pathlib import Path
 
+from . import profile_test as pt
+
+FORMAT_PROFILE = "profile"
 LANDING_DIR = Path(__file__).resolve().parent / "landing_tests"
 LETTERS = "ABCDEFGH"
 STATUS_PASSED = "O‘tdi"
@@ -64,7 +73,15 @@ def load_questionnaire(slug: str) -> dict | None:
     if not cached or cached[0] != mtime:
         raw = json.loads(path.read_text(encoding="utf-8"))
         # Yakuniy bilim testi (kind=final) — boshqa format, final_test.py da ishlanadi
-        data = None if raw.get("kind") == "final" else _validate(raw, path)
+        if raw.get("kind") == "final":
+            data = None
+        elif raw.get("format") == FORMAT_PROFILE:
+            try:
+                data = pt.validate_config(raw)
+            except ValueError as e:
+                raise QuestionnaireError(f"{path.name}: {e}")
+        else:
+            data = _validate(raw, path)
         if data:
             data.pop("_izoh", None)
         _cache[slug] = (mtime, data)
@@ -80,6 +97,15 @@ def list_questionnaires() -> list[dict]:
     return out
 
 
+def is_profile(q: dict) -> bool:
+    return q.get("format") == FORMAT_PROFILE
+
+
+def position_names(q: dict) -> list[str]:
+    """Ro‘yxatdan o‘tishdagi lavozimlar: eski formatda satrlar, profil formatida {name, weights} obyektlari."""
+    return [p["name"] if isinstance(p, dict) else p for p in q.get("positions") or []]
+
+
 def scale_bounds(q: dict) -> tuple[int, int]:
     s = q.get("scale") or {}
     return int(s.get("min", 1)), int(s.get("max", 5))
@@ -87,6 +113,15 @@ def scale_bounds(q: dict) -> tuple[int, int]:
 
 def public_view(q: dict) -> dict:
     """Nomzodga ko‘rinadigan shakl — baholash kaliti (key, keyNote, points) olib tashlanadi."""
+    if is_profile(q):
+        return {
+            "slug": q["slug"], "format": FORMAT_PROFILE, "title": q["title"],
+            "subtitle": q.get("subtitle", ""), "description": q.get("description", ""),
+            "positions": position_names(q), "options": q["options"],
+            "stageSize": q.get("stageSize", 10), "stages": pt.stages(q),
+            # Kalit (key, scale, samimiylik, og‘irliklar) yuborilmaydi — faqat matn va variantlar
+            "questions": [{"id": i["id"], "text": i["text"], "options": i["options"]} for i in q["questions"]],
+        }
     q = copy.deepcopy(q)
     for item in q["questions"]:
         item.pop("key", None)
@@ -105,6 +140,22 @@ def _max_points(q: dict, item: dict) -> float:
 
 def answer_key(q: dict) -> list[dict]:
     """HR uchun baholash kaliti: har savolda qaysi javob qancha ball beradi."""
+    if is_profile(q):
+        titles = {s["id"]: s["title"] for s in q["scales"]}
+        sid = q["sincerity"]["id"]
+        rows = []
+        for item in q["questions"]:
+            sincere = item["scale"] == sid
+            choices = [{"label": str(i), "text": t, "points": pt.item_point(item["key"], i)} for i, t in enumerate(q["options"])]
+            rows.append({
+                "id": item["id"], "section": item["scale"], "type": "agree", "text": item["text"],
+                "key": item["key"], "sincerity": sincere,
+                "keyNote": ("Samimiylik savoli: 1 — samimiy javob (asosiy ko‘rsatkichlarga qo‘shilmaydi)" if sincere
+                            else f"{titles[item['scale']]}" + (" · teskari savol" if item["key"] == "reverse" else "")),
+                "choices": [{**c, "best": c["points"] == 1} for c in choices],
+                "maxPoints": 1,
+            })
+        return rows
     lo, hi = scale_bounds(q)
     labels = (q.get("scale") or {}).get("labels") or []
     rows = []
@@ -138,6 +189,17 @@ def validate_answers(q: dict, answers: dict) -> dict[int, int]:
         if raw is None or isinstance(raw, bool):
             missing.append(item["id"])
             continue
+        if isinstance(raw, float) and not raw.is_integer():
+            raise QuestionnaireError(f"{item['id']}-savol javobi noto‘g‘ri")
+        if is_profile(q):
+            try:
+                value = int(raw)
+            except (TypeError, ValueError):
+                raise QuestionnaireError(f"{item['id']}-savol javobi noto‘g‘ri")
+            if value not in (0, 1):
+                raise QuestionnaireError(f"{item['id']}-savol javobi «Qo‘shilmayman» (0) yoki «Qo‘shilaman» (1) bo‘lishi kerak")
+            clean[item["id"]] = value
+            continue
         try:
             value = int(raw)
         except (TypeError, ValueError):
@@ -149,11 +211,20 @@ def validate_answers(q: dict, answers: dict) -> dict[int, int]:
         clean[item["id"]] = value
     if missing:
         raise QuestionnaireError(f"Barcha savollarga javob bering. Javobsiz: {', '.join(map(str, missing))}")
+    extra = {str(k) for k in answers} - {str(i["id"]) for i in q["questions"]}
+    if is_profile(q) and extra:
+        raise QuestionnaireError("Noma’lum savol raqami yuborildi")
     return clean
 
 
-def score(q: dict, answers: dict[int, int]) -> dict:
+def score(q: dict, answers: dict[int, int], duration_sec: int | None = None) -> dict:
     """Javoblarni kalit bo‘yicha baholaydi va har bir savol tahlilini qaytaradi."""
+    if is_profile(q):
+        g = pt.grade(q, answers, duration_sec)
+        # Ro‘yxat uchun "sections" — shkalalar bo‘yicha ball (eski natijalar bilan bir xil shakl)
+        g["sections"] = [{"id": s["id"], "title": s["title"], "points": s["points"], "maxPoints": s["max"], "percent": s["percent"]}
+                         for s in g["report"]["scales"]]
+        return g
     key = {row["id"]: row for row in answer_key(q)}
     lo, _ = scale_bounds(q)
     items, earned_total, max_total = [], 0, 0

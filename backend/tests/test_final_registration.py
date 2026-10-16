@@ -207,7 +207,7 @@ def test_parallel_submits_do_not_lose_data(client, hr_headers):
 def test_landing1_still_works(client):
     q = client.get(f"{API}/public/tests/sotuv").json()
     assert "Marketing" in q["positions"] and "Logistika" in q["positions"]
-    answers = {str(i["id"]): (5 if i["type"] == "scale" else 0) for i in q["questions"]}
+    answers = {str(i["id"]): 1 for i in q["questions"]}  # 40 savolli test: 1 = «Qo‘shilaman»
     r = client.post(f"{API}/public/tests/sotuv/submit", json={
         "fullName": "Testov Test Testovich", "age": 25, "date": date.today().isoformat(),
         "position": "Marketing", "answers": answers,
