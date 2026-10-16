@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed } from 'vue'
 import { landingResultsApi } from '@/api/landing'
 import { useCollection } from './helpers'
-import { isLandingPositive } from '@/constants'
+import { isLandingPositive, isLandingUnreliable } from '@/constants'
 
 /** Landing (ochiq) test orqali kelgan nomzodlar natijalari — data/landing_results.json */
 export const useLandingStore = defineStore('landing', () => {
@@ -32,7 +32,7 @@ export const useLandingStore = defineStore('landing', () => {
       failed: items.length - passed,
       unseen: items.filter((r) => !r.viewed).length,
       avg: items.length ? Math.round(items.reduce((s, r) => s + (r.percent || 0), 0) / items.length) : 0,
-      unreliable: items.filter((r) => r.status === 'Ishonchsiz natija').length,
+      unreliable: items.filter(isLandingUnreliable).length,
       avgReliability: withReliability.length ? Math.round(withReliability.reduce((s, r) => s + r.reliability, 0) / withReliability.length) : null,
     }
   })

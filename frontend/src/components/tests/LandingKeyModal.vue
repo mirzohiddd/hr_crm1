@@ -41,8 +41,22 @@ const sectionItems = (id) => key.value.questions.filter((q) => q.section === id)
     <LoadingState v-if="loading" :rows="5" />
     <p v-else-if="error" class="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertCircle class="mt-0.5 h-4 w-4 shrink-0" /> {{ error }}</p>
     <template v-else-if="key">
+      <!-- «Ishdagi shaxsiyat 360» (format=persona) -->
+      <div v-if="key.format === 'persona'" class="rounded-2xl border border-primary-100 bg-primary-50/60 p-4 text-sm leading-relaxed text-slate-700">
+        <p class="font-semibold text-ink">Natija qanday hisoblanadi</p>
+        <ul class="mt-2 list-disc space-y-1 pl-5">
+          <li><b>{{ key.questions.length }} ta savol</b>, {{ Math.ceil(key.questions.length / key.stageSize) }} bosqich × {{ key.stageSize }} ta. Javob: «{{ key.options[0] }}» yoki «{{ key.options[1] }}».</li>
+          <li><b>13 ta xususiyat</b>, har birida 3 ta savol. To‘g‘ri savolda «{{ key.options[1] }}», <b>teskari savolda</b> «{{ key.options[0] }}» = 1 ball. Xususiyat foizi = ball / 3 × 100.</li>
+          <li><b>Yuqori samaradorlik</b> va <b>to‘sqinlik qiluvchi</b> foizlari — guruhdagi xususiyatlar o‘rtachasi. 4 ta yo‘nalish — undagi xususiyatlar o‘rtachasi.</li>
+          <li><b>Ishonchlilik</b> (yuqori / o‘rtacha / past): diqqat tekshiruvi (21-savol), bir xil javoblar, juda tez topshirish, qarama-qarshi juft savollar, «ideal» javoblar.</li>
+          <li><b>Lavozimga moslik</b> — xususiyatlarning og‘irlikli o‘rtachasi (to‘sqinlik qiluvchilar teskari hisoblanadi).</li>
+          <li>Bu test klinik tashxis emas — HR suhbati uchun yo‘naltiruvchi ma’lumot.</li>
+        </ul>
+        <p class="mt-2 text-xs text-muted">Savollar, matnlar va kalitni o‘zgartirish: <code class="rounded bg-white px-1 py-0.5">backend/app/landing_tests/{{ key.slug }}.json</code>. Avval topshirilgan natijalar o‘zgarmaydi.</p>
+      </div>
+
       <!-- 40 savolli test (format=profile) -->
-      <div v-if="key.format === 'profile'" class="rounded-2xl border border-primary-100 bg-primary-50/60 p-4 text-sm leading-relaxed text-slate-700">
+      <div v-else-if="key.format === 'profile'" class="rounded-2xl border border-primary-100 bg-primary-50/60 p-4 text-sm leading-relaxed text-slate-700">
         <p class="font-semibold text-ink">Natija qanday hisoblanadi</p>
         <ul class="mt-2 list-disc space-y-1 pl-5">
           <li><b>{{ key.questions.length }} ta fikr</b>, {{ Math.ceil(key.questions.length / key.stageSize) }} bosqich × {{ key.stageSize }} ta. Javob: «{{ key.options[0] }}» yoki «{{ key.options[1] }}».</li>

@@ -33,6 +33,10 @@ const TONE_BY_STATUS = {
   'Suhbatda aniqlashtirish': 'amber',
   'Qo‘shimcha baholash kerak': 'orange',
   'Ishonchsiz natija': 'red',
+  'Ishga olish tavsiya etiladi': 'green',
+  'Suhbatdan keyin qaror qiling': 'amber',
+  'Ehtiyotkorlik bilan': 'orange',
+  'Natija ishonchsiz': 'red',
   // Foydalanuvchilar
   Bloklangan: 'red',
 }

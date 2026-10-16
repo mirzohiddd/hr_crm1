@@ -18,6 +18,7 @@ import { useLandingStore } from '@/stores/landing'
 import { useToast } from '@/composables/useToast'
 import { usePagination } from '@/composables/usePagination'
 import { LANDING_RESULT_LABELS, LANDING_TEST_SLUG, isLandingPositive } from '@/constants'
+const REL_TONE = { yuqori: 'text-emerald-600', 'o‘rtacha': 'text-amber-600', past: 'text-red-600' }
 import { formatDateTime } from '@/utils/date'
 import { downloadCsv, normalizeText, onlyDigits } from '@/utils/format'
 
@@ -48,6 +49,7 @@ const statusTabs = computed(() => [
   { value: 'attention', label: 'E’tibor talab qiladi', count: store.stats.failed },
 ])
 const isProfile = (r) => r?.format === 'profile'
+const isPersona = (r) => r?.format === 'persona'
 const SCALE_SHORT = { masuliyat: 'Mas’ul.', stress: 'Stress', muloqot: 'Muloq.', hamdardlik: 'Hamd.' }
 const SCALE_TITLE = { masuliyat: 'Mas’uliyat', stress: 'Stressga chidamlilik', muloqot: 'Muloqot', hamdardlik: 'Hamdardlik' }
 const scaleLabel = (id, r) => SCALE_SHORT[id] || r?.sections?.find((s) => s.id === id)?.title || id
@@ -75,15 +77,15 @@ function clearFilters() {
 function exportCsv() {
   downloadCsv(
     `nomzodlar-testi-${new Date().toISOString().slice(0, 10)}.csv`,
-    ['F.I.Sh.', 'Lavozim', 'Yosh', 'Telefon', 'Sana', 'Topshirilgan vaqt', 'Ball', 'Maksimal ball', 'Foiz / indeks', 'Holati / tavsiya',
-      'Mas’uliyat', 'Stressga chidamlilik', 'Muloqot', 'Hamdardlik', 'Ishonchlilik', 'Eng mos lavozim'],
+    ['F.I.Sh.', 'Lavozim', 'Yosh', 'Telefon', 'Sana', 'Topshirilgan vaqt', 'Holati / HR xulosasi', 'Profil', 'Ishonchlilik',
+      'Yuqori samaradorlik', 'To‘sqinlik qiluvchi', 'Xususiyatlar', 'Eng mos lavozim', 'Ball', 'Foiz'],
     filtered.value.map((r) => {
-      const s = r.scores || {}
-      const pct = (v) => (v || v === 0 ? `${v}%` : '')
+      const traits = (r.sections || []).map((s) => `${s.title} ${s.percent ?? Math.round((s.points / s.maxPoints) * 100)}%`).join('; ')
       return [
-        r.fullName, r.position, r.age, r.phone, r.date, formatDateTime(r.submittedAt), r.points, r.maxPoints, `${r.percent}%`,
-        LANDING_RESULT_LABELS[r.status] || r.status, pct(s.masuliyat), pct(s.stress), pct(s.muloqot), pct(s.hamdardlik),
-        pct(r.reliability), r.bestPosition ? `${r.bestPosition.name} (${r.bestPosition.percent}%)` : '',
+        r.fullName, r.position, r.age, r.phone, r.date, formatDateTime(r.submittedAt), LANDING_RESULT_LABELS[r.status] || r.status,
+        r.profileTitle || '', r.reliabilityLevel || (typeof r.reliability === 'number' ? `${r.reliability}%` : ''),
+        r.positive ?? '', r.negative ?? '', traits, r.bestPosition ? `${r.bestPosition.name} (${r.bestPosition.percent}%)` : '',
+        isPersona(r) ? '' : `${r.points}/${r.maxPoints}`, isPersona(r) ? '' : `${r.percent}%`,
       ]
     }),
   )
@@ -117,7 +119,7 @@ async function confirmDelete() {
     <div class="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-md shadow-primary-600/25"><Link2 class="h-5 w-5" /></span>
       <div class="min-w-0 flex-1">
-        <p class="text-sm font-semibold text-ink">Yangi xodimlar testi havolasi — 40 ta savol, 4 bosqich</p>
+        <p class="text-sm font-semibold text-ink">«Ishdagi shaxsiyat 360» — yangi xodimlar testi havolasi (40 ta savol, 4 bosqich)</p>
         <p class="text-[13px] text-muted">Yangi kelgan xodim yoki nomzodga yuboring — login talab qilinmaydi: <span class="break-all font-medium text-primary-700">{{ publicUrl }}</span></p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -154,8 +156,8 @@ async function confirmDelete() {
                 <th class="table-th">F.I.Sh.</th>
                 <th class="table-th">Lavozim</th>
                 <th class="table-th">Topshirgan sana</th>
-                <th class="table-th">Ko‘rsatkichlar / ball</th>
-                <th class="table-th">Natija</th>
+                <th class="table-th">Profil / ko‘rsatkichlar</th>
+                <th class="table-th">Natija / lavozim</th>
                 <th class="table-th">Holati</th>
                 <th class="table-th text-right" />
               </tr>
@@ -184,7 +186,11 @@ async function confirmDelete() {
                 </td>
                 <td class="table-td whitespace-nowrap tabular-nums text-slate-600">{{ formatDateTime(r.submittedAt) }}</td>
                 <td class="table-td">
-                  <div v-if="isProfile(r) && r.scores" class="grid w-40 grid-cols-2 gap-x-3 gap-y-1">
+                  <div v-if="isPersona(r)" class="min-w-0">
+                    <p class="text-[13px] font-medium text-ink">{{ r.profileTitle }}</p>
+                    <p class="text-[11px] text-muted">Ishonchlilik: <b :class="REL_TONE[r.reliabilityLevel]">{{ r.reliabilityLevel }}</b></p>
+                  </div>
+                  <div v-else-if="isProfile(r) && r.scores" class="grid w-40 grid-cols-2 gap-x-3 gap-y-1">
                     <div v-for="(v, id) in r.scores" :key="id" class="flex items-center gap-1" :title="`${scaleTitle(id, r)}: ${v}%`">
                       <span class="w-11 truncate text-[11px] text-muted">{{ scaleLabel(id, r) }}</span>
                       <span class="h-1 flex-1 overflow-hidden rounded-full bg-slate-100"><span :class="['block h-full rounded-full', levelBar(v)]" :style="{ width: `${v}%` }" /></span>
@@ -193,7 +199,11 @@ async function confirmDelete() {
                   </div>
                   <span v-else class="tabular-nums text-slate-600"><b class="text-ink">{{ r.points }}</b>/{{ r.maxPoints }} ball</span>
                 </td>
-                <td class="table-td">
+                <td v-if="isPersona(r)" class="table-td">
+                  <p class="text-[11px] text-muted">Eng mos lavozim</p>
+                  <p class="max-w-[11rem] truncate text-[13px] font-medium text-ink">{{ r.bestPosition?.name || '—' }}</p>
+                </td>
+                <td v-else class="table-td">
                   <div class="flex items-center gap-2">
                     <div class="h-1.5 w-14 overflow-hidden rounded-full bg-slate-100">
                       <div :class="['h-full rounded-full transition-[width] duration-500', isProfile(r) ? levelBar(r.percent) : r.status === 'O‘tdi' ? 'bg-emerald-500' : 'bg-red-500']" :style="{ width: `${r.percent}%` }" />
@@ -206,7 +216,7 @@ async function confirmDelete() {
                 <td class="table-td"><StatusBadge :status="r.status" :label="LANDING_RESULT_LABELS[r.status] || r.status" /></td>
                 <td class="table-td text-right" @click.stop @keydown.enter.stop>
                   <div class="flex justify-end gap-1.5">
-                    <button class="icon-btn h-8 w-8 border border-line bg-white hover:border-primary-200 hover:text-primary-600" :title="isProfile(r) ? 'HR hisobotini ko‘rish' : 'Javoblarni ko‘rish'" :aria-label="isProfile(r) ? 'HR hisobotini ko‘rish' : 'Javoblarni ko‘rish'" @click="openId = r.id">
+                    <button class="icon-btn h-8 w-8 border border-line bg-white hover:border-primary-200 hover:text-primary-600" :title="isProfile(r) || isPersona(r) ? 'HR hisobotini ko‘rish' : 'Javoblarni ko‘rish'" :aria-label="isProfile(r) || isPersona(r) ? 'HR hisobotini ko‘rish' : 'Javoblarni ko‘rish'" @click="openId = r.id">
                       <Eye class="h-4 w-4" />
                     </button>
                     <button class="icon-btn h-8 w-8 border border-line bg-white hover:border-red-200 hover:bg-red-50 hover:text-red-600" title="O‘chirish" :aria-label="`${r.fullName}: o‘chirish`" @click="askDelete(r)">
@@ -233,7 +243,8 @@ async function confirmDelete() {
                 </span>
                 <span class="mt-0.5 block truncate text-[13px] text-slate-600">{{ r.position }} · {{ r.age }} yosh</span>
                 <span class="mt-1 flex flex-wrap gap-x-4 text-xs tabular-nums text-muted">
-                  <span v-if="isProfile(r)"><b class="text-ink">{{ r.percent }}%</b> indeks · ishonchlilik {{ r.reliability }}%<template v-if="r.bestPosition"> · {{ r.bestPosition.name }}</template></span>
+                  <span v-if="isPersona(r)"><b class="text-ink">{{ r.profileTitle }}</b> · ishonchlilik {{ r.reliabilityLevel }}<template v-if="r.bestPosition"> · {{ r.bestPosition.name }}</template></span>
+                  <span v-else-if="isProfile(r)"><b class="text-ink">{{ r.percent }}%</b> indeks · ishonchlilik {{ r.reliability }}%<template v-if="r.bestPosition"> · {{ r.bestPosition.name }}</template></span>
                   <span v-else><b class="text-ink">{{ r.percent }}%</b> · {{ r.points }}/{{ r.maxPoints }} ball</span>
                   <span>{{ formatDateTime(r.submittedAt) }}</span>
                 </span>

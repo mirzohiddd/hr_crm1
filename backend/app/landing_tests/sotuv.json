@@ -1,379 +1,589 @@
 {
   "_izoh": [
-    "Yangi kelgan xodimlar / nomzodlar uchun shaxsiy-kasbiy test (landing: /test/sotuv). 40 ta fikr, 4 bosqich × 10 ta (stageSize). Tartib — shu fayldagi tartib.",
-    "Javob variantlari: 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman».",
-    "Har bir savol: id, text, scale (shkala id si), key. key=direct — «Qo‘shilaman» 1 ball; key=reverse (teskari savol) — «Qo‘shilmayman» 1 ball.",
-    "scale='samimiylik' — samimiylikni tekshiruvchi savollar: asosiy ko‘rsatkichlarga qo‘shilmaydi, faqat natija ishonchliligiga ta’sir qiladi (1 ball = samimiy javob).",
-    "pairs — bir shkaladagi qarama-qarshi kalitli juft savollar: ularga ziddiyatli javob berilsa, ishonchlilik pasayadi.",
-    "positions — ro‘yxatdan o‘tishda tanlanadigan lavozimlar va lavozimga moslik og‘irliklari (weights): moslik = shkala foizlarining og‘irlikli o‘rtachasi.",
-    "Hisoblash va HR hisoboti: backend/app/profile_test.py. Bu test klinik tashxis emas.",
-    "Savol matnini o‘zgartirsangiz, serverni qayta ishga tushirish shart emas. Avval topshirilgan natijalarda savollar nusxasi saqlanadi."
+    "«Ishdagi shaxsiyat 360» — yangi kelgan xodimlar / nomzodlar testi (landing: /test/sotuv). 40 ta savol, 4 bosqich × 10 ta. Savollar tartibi va matni — shu fayldagi tartibda.",
+    "Javob: 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman». Har bir savol: trait (xususiyat), key: direct — «Qo‘shilaman» 1 ball; reverse (teskari savol) — «Qo‘shilmayman» 1 ball.",
+    "21-savol — diqqat tekshiruvi (attention): to‘g‘ri javob expected=0 («Qo‘shilmayman»). Noto‘g‘ri javob — natija ishonchsiz.",
+    "traits — 13 ta xususiyat (har birida 3 ta savol). group: positive — yuqori samaradorlik (yuqori bo‘lgani yaxshi), negative — to‘sqinlik qiluvchi (past bo‘lgani yaxshi).",
+    "directions — 4 ta yo‘nalish (radar ranglari). pairs — ziddiyatni tekshiruvchi juft savollar. roles — lavozimga moslik og‘irliklari.",
+    "positions — ro‘yxatdan o‘tishda tanlanadigan lavozimlar (o‘zgarmagan).",
+    "Hisoblash: backend/app/persona_test.py. Bu test klinik tashxis emas."
   ],
-  "format": "profile",
+  "format": "persona",
   "slug": "sotuv",
-  "title": "Yangi xodimlar uchun shaxsiy-kasbiy test",
-  "subtitle": "4 bosqich · 40 ta fikr · «Qo‘shilmayman» yoki «Qo‘shilaman»",
+  "title": "Ishdagi shaxsiyat 360",
+  "subtitle": "Yangi xodimlar uchun test · 4 bosqich · 40 ta savol",
   "description": "Har bir fikrni o‘qing va o‘zingizga mosini tanlang. To‘g‘ri yoki noto‘g‘ri javob yo‘q — birinchi xayolingizga kelgan, samimiy javobni bering.",
   "stageSize": 10,
   "options": [
     "Qo‘shilmayman",
     "Qo‘shilaman"
   ],
-  "scales": [
+  "positions": [
+    "Sotuv menejeri",
+    "Sotuv operatori (Call Center)",
+    "Savdo maslahatchisi",
+    "Marketing",
+    "Logistika"
+  ],
+  "traits": [
+    {
+      "id": "innovatsiya",
+      "title": "Innovatsiya",
+      "group": "positive",
+      "direction": "natija",
+      "description": "Yangi g'oyalar va ishni yaxshilash yo'llarini izlash",
+      "strengthText": "Yangi g'oyalar topadi, ishni yaxshilash yo'llarini izlaydi.",
+      "lowText": "Sinalgan usuldan chiqishni xohlamaydi, yangilikka sekin moslashadi.",
+      "interview": [
+        "Ishingizda biror jarayonni o'zingiz yaxshilagan holatni aytib bering."
+      ],
+      "developText": "Har hafta ishingizdagi bitta jarayonni qanday tezroq qilish mumkinligini yozib, rahbar bilan muhokama qiling."
+    },
+    {
+      "id": "feedback",
+      "title": "Feedbackga ochiqlik",
+      "group": "positive",
+      "direction": "jamoa",
+      "description": "Tanqid va fikr-mulohazani qabul qilish",
+      "strengthText": "Tanqidni xotirjam tinglaydi va o'zi fikr-mulohaza so'raydi.",
+      "lowText": "Tanqidni qabul qilishga qiynaladi, darrov o'zini oqlashga tushadi.",
+      "interview": [
+        "Rahbaringizdan olgan eng foydali tanqid qaysi edi va undan keyin nimani o'zgartirdingiz?"
+      ],
+      "developText": "Tanqid eshitganda avval «rahmat, tushundim» deng va javobni keyinroq bering."
+    },
+    {
+      "id": "yordam",
+      "title": "Yordamsevarlik",
+      "group": "positive",
+      "direction": "jamoa",
+      "description": "Hamkasblarga yordam berish va qo'llab-quvvatlash",
+      "strengthText": "Hamkasblariga yordam beradi, ularni qo'llab-quvvatlaydi va maqtaydi.",
+      "lowText": "Hamkasblarning muammolariga kam e'tibor beradi, asosan o'z ishiga yopiladi.",
+      "interview": [
+        "Hamkasbingizga o'z vazifangiz bo'lmasa ham yordam bergan holatni aytib bering."
+      ],
+      "developText": "Har hafta bitta hamkasbingizga ishida yordam taklif qiling yoki yaxshi ishini ochiq maqtang."
+    },
+    {
+      "id": "ijtimoiylik",
+      "title": "Ijtimoiylik",
+      "group": "positive",
+      "direction": "jamoa",
+      "description": "Odamlar bilan muloqot va jamoaviy faollik",
+      "strengthText": "Odamlar bilan tez kirishadi, jamoaviy tadbirlarda faol.",
+      "lowText": "Odamlar bilan muloqotdan qochadi, yangi jamoaga sekin kirishadi.",
+      "interview": [
+        "Yangi jamoaga kelganingizda odamlar bilan qanday tanishasiz?"
+      ],
+      "developText": "Yig'ilishlarda kamida bitta fikr bildiring va jamoaviy tadbirlarda qatnashing."
+    },
+    {
+      "id": "tasdiqlash",
+      "title": "Tasdiqlash izlash",
+      "group": "negative",
+      "direction": "moslashish",
+      "description": "Maqtovga bog'liqlik, «yo'q» deya olmaslik",
+      "riskText": "Hammaga yoqishga intiladi, «yo'q» deyishga qiynaladi, maqtovga bog'liq.",
+      "interview": [
+        "Rozi bo'lmagan holda «xo'p» deb, keyin afsuslangan paytingiz bo'lganmi?"
+      ],
+      "developText": "Rozi bo'lmagan paytingizda muloyim, lekin aniq «yo'q» deyishni mashq qiling."
+    },
+    {
+      "id": "qaramlik",
+      "title": "Qaramlik",
+      "group": "negative",
+      "direction": "moslashish",
+      "description": "Qarorni boshqalardan kutish",
+      "riskText": "Qarorni boshqalardan kutadi, mustaqil harakat qilishga ikkilanadi.",
+      "interview": [
+        "Rahbaringiz yo'q paytda muhim qaror qabul qilishingiz kerak bo'lsa, nima qilasiz?"
+      ],
+      "developText": "Kichik masalalarda rahbarga borishdan oldin o'zingiz 2 ta yechim tayyorlang."
+    },
+    {
+      "id": "ruhiy_bosim",
+      "title": "Ruhiy bosim",
+      "group": "negative",
+      "direction": "moslashish",
+      "description": "Xavotir va bosim ostida diqqatni yo'qotish",
+      "riskText": "Ish ko'payganda xavotirlanadi, kichik muammolar uzoq bezovta qiladi.",
+      "interview": [
+        "Ish juda ko'payib ketgan bir kuningizni eslang. O'zingizni qanday tutdingiz?"
+      ],
+      "developText": "Ishlar ko'payganda ro'yxat tuzib, eng muhim 3 tasidan boshlang; kun oxirida bajarilganlarni belgilang."
+    },
+    {
+      "id": "qattiqqollik",
+      "title": "Qattiqqo'llik",
+      "group": "negative",
+      "direction": "nazorat",
+      "description": "O'z fikrida qattiq turish, o'zgarishga qarshilik",
+      "riskText": "O'z fikrida qattiq turadi, o'zgarish va boshqa usullarga qarshilik qiladi.",
+      "interview": [
+        "O'z fikringizdan voz kechib, boshqaning taklifini qabul qilgan holatni aytib bering."
+      ],
+      "developText": "Bahsda o'z fikringizni aytishdan oldin boshqaning fikrini o'z so'zlaringiz bilan qaytarib ayting."
+    },
+    {
+      "id": "xusumat",
+      "title": "Xusumat",
+      "group": "negative",
+      "direction": "nazorat",
+      "description": "Tez jahl chiqishi, keskinlik, kek saqlash",
+      "riskText": "Tez jahli chiqadi, keskin gapirishi va kek saqlashi mumkin.",
+      "interview": [
+        "Hamkasbingiz bilan keskin kelishmovchilik bo'lgan holatni aytib bering. Qanday hal qildingiz?"
+      ],
+      "developText": "Jahlingiz chiqqanda javob berishdan oldin 10 gacha sanang yoki suhbatni keyinga qoldiring."
+    },
+    {
+      "id": "nazorat",
+      "title": "Nazorat ehtiyoji",
+      "group": "negative",
+      "direction": "nazorat",
+      "description": "Hamma narsani o'zi nazorat qilishga moyillik",
+      "riskText": "Ishni boshqalarga ishonib topshirishga qiynaladi, har qadamni nazorat qiladi.",
+      "interview": [
+        "Ishni boshqaga topshirsangiz, uni qanchalik tez-tez tekshirasiz?"
+      ],
+      "developText": "Topshirgan ishni faqat kelishilgan nazorat nuqtalarida tekshiring, oraliqda aralashmang."
+    },
+    {
+      "id": "raqobat",
+      "title": "Raqobatchilik",
+      "group": "negative",
+      "direction": "nazorat",
+      "strengthCandidate": true,
+      "developCandidate": false,
+      "description": "G'olib bo'lish istagi (me'yorida — kuch, haddan oshsa — to'siq)",
+      "strengthText": "G'olib bo'lishni yaxshi ko'radi, raqobat uni ruhlantiradi.",
+      "riskText": "G'olib bo'lish istagi hamkasblar bilan munosabatga zarar yetkazishi mumkin.",
+      "interview": [
+        "Hamkasbingiz sizdan yaxshiroq natija ko'rsatganda nima his qildingiz va nima qildingiz?"
+      ],
+      "developText": "Raqobatni jamoaviy maqsadga yo'naltiring: shaxsiy natija bilan birga jamoa natijasini ham kuzating."
+    },
     {
       "id": "masuliyat",
-      "title": "Mas’uliyat",
-      "short": "Mas’uliyat",
-      "description": "Vazifani muddatida va oxirigacha bajarish, xato uchun javobgarlikni olish"
+      "title": "Mas'uliyatlilik",
+      "group": "positive",
+      "direction": "natija",
+      "description": "Va'dani bajarish, ishni sifatli va o'z vaqtida topshirish",
+      "strengthText": "Va'dasini eslatmasdan bajaradi, ishini topshirishdan oldin tekshiradi.",
+      "lowText": "Ishni keyinga qoldirib unutishi mumkin, nazorat va eslatma talab qiladi.",
+      "interview": [
+        "Muddatni o'tkazib yuborgan holatingizni aytib bering: nima sabab bo'ldi va keyin nima qildingiz?"
+      ],
+      "developText": "Barcha va'dalarni bitta ro'yxatga yozing va har kuni ertalab tekshiring."
     },
     {
-      "id": "stress",
-      "title": "Stressga chidamlilik",
-      "short": "Stress",
-      "description": "Bosim, tanqid va kutilmagan vaziyatda xotirjamlikni saqlash"
-    },
-    {
-      "id": "muloqot",
-      "title": "Muloqot",
-      "short": "Muloqot",
-      "description": "Notanish odamlar bilan til topishish, fikrni aniq bayon qilish"
-    },
-    {
-      "id": "hamdardlik",
-      "title": "Hamdardlik",
-      "short": "Hamdardlik",
-      "description": "Boshqalarning holatini sezish, tinglash va yordam berish"
+      "id": "yutuq",
+      "title": "Yutuqqa intilish",
+      "group": "positive",
+      "direction": "natija",
+      "description": "Katta maqsad qo'yish va natija uchun harakat",
+      "strengthText": "Katta maqsad qo'yadi, natija uchun qattiq harakat qiladi.",
+      "lowText": "Erishilgan darajada qolishga moyil, o'sish uchun tashqi turtki kerak.",
+      "interview": [
+        "O'zingizga qo'ygan eng katta ish maqsadingiz nima edi va unga qanday erishdingiz?"
+      ],
+      "developText": "Har oy uchun bitta o'lchanadigan maqsad qo'ying va natijani rahbar bilan muhokama qiling."
     }
   ],
-  "sincerity": {
-    "id": "samimiylik",
-    "title": "Samimiylik"
-  },
+  "directions": [
+    {
+      "id": "natija",
+      "title": "Natijaga ishlash",
+      "color": "green",
+      "goodHigh": true,
+      "description": "Maqsadga erishish va ishni sifatli bajarishga yo'naltirilganlik.",
+      "traits": [
+        "innovatsiya",
+        "masuliyat",
+        "yutuq",
+        "raqobat"
+      ]
+    },
+    {
+      "id": "jamoa",
+      "title": "Jamoa bilan ishlash",
+      "color": "blue",
+      "goodHigh": true,
+      "description": "Hamkorlik, yordamsevarlik va fikr-mulohazaga ochiqlik.",
+      "traits": [
+        "yordam",
+        "feedback",
+        "ijtimoiylik"
+      ]
+    },
+    {
+      "id": "moslashish",
+      "title": "Haddan tashqari moslashish",
+      "color": "amber",
+      "goodHigh": false,
+      "description": "Kelishmovchilikdan qochish, boshqalarga bog'liqlik va ichki bosim. Past bo'lgani yaxshi.",
+      "traits": [
+        "tasdiqlash",
+        "qaramlik",
+        "ruhiy_bosim"
+      ]
+    },
+    {
+      "id": "nazorat",
+      "title": "Haddan tashqari nazorat",
+      "color": "red",
+      "goodHigh": false,
+      "description": "Boshqarishga, bosim o'tkazishga va qattiqqo'llikka moyillik. Past bo'lgani yaxshi.",
+      "traits": [
+        "qattiqqollik",
+        "xusumat",
+        "nazorat",
+        "raqobat"
+      ]
+    }
+  ],
   "pairs": [
     [
-      1,
+      3,
+      32
+    ],
+    [
+      8,
+      34
+    ],
+    [
+      5,
       16
     ],
     [
-      31,
-      36
+      9,
+      35
     ],
     [
-      7,
-      2
-    ],
-    [
-      37,
-      12
-    ],
-    [
-      3,
-      18
-    ],
-    [
-      23,
-      8
-    ],
-    [
-      4,
-      9
-    ],
-    [
-      24,
-      19
+      1,
+      28
     ]
   ],
-  "positions": [
+  "roles": [
     {
       "name": "Sotuv menejeri",
-      "description": "Mijoz bilan savdo suhbati va bitimni yopish",
       "weights": {
-        "muloqot": 0.4,
-        "stress": 0.3,
-        "masuliyat": 0.2,
-        "hamdardlik": 0.1
+        "ijtimoiylik": 2,
+        "yutuq": 2,
+        "raqobat": 1,
+        "ruhiy_bosim": 2,
+        "masuliyat": 1,
+        "innovatsiya": 1,
+        "qaramlik": 1
       }
     },
     {
-      "name": "Sotuv operatori (Call Center)",
-      "description": "Kiruvchi va chiquvchi qo‘ng‘iroqlar",
+      "name": "Sotuv operatori",
       "weights": {
-        "stress": 0.35,
-        "muloqot": 0.3,
-        "hamdardlik": 0.2,
-        "masuliyat": 0.15
+        "ijtimoiylik": 2,
+        "ruhiy_bosim": 2,
+        "xusumat": 2,
+        "masuliyat": 1,
+        "yordam": 1,
+        "feedback": 1
       }
     },
     {
       "name": "Savdo maslahatchisi",
-      "description": "Mijozga mahsulot tanlashda maslahat",
       "weights": {
-        "muloqot": 0.35,
-        "hamdardlik": 0.3,
-        "masuliyat": 0.2,
-        "stress": 0.15
+        "ijtimoiylik": 2,
+        "yordam": 2,
+        "feedback": 1,
+        "masuliyat": 1,
+        "xusumat": 2
       }
     },
     {
-      "name": "Marketing",
-      "description": "Reklama kampaniyalari va kontent",
+      "name": "Mahsulot bo'yicha admin",
       "weights": {
-        "muloqot": 0.3,
-        "masuliyat": 0.3,
-        "hamdardlik": 0.25,
-        "stress": 0.15
+        "masuliyat": 3,
+        "innovatsiya": 1,
+        "feedback": 1,
+        "qaramlik": 1,
+        "ruhiy_bosim": 1,
+        "yordam": 1
       }
     },
     {
-      "name": "Logistika",
-      "description": "Yetkazib berish, kuryerlar, ombor nazorati",
+      "name": "Marketing mutaxassisi",
       "weights": {
-        "masuliyat": 0.45,
-        "stress": 0.35,
-        "muloqot": 0.15,
-        "hamdardlik": 0.05
+        "innovatsiya": 3,
+        "ijtimoiylik": 1,
+        "yutuq": 2,
+        "qattiqqollik": 1,
+        "feedback": 1
+      }
+    },
+    {
+      "name": "Logistika xodimi",
+      "weights": {
+        "masuliyat": 3,
+        "ruhiy_bosim": 2,
+        "qaramlik": 1,
+        "yutuq": 1,
+        "xusumat": 1
+      }
+    },
+    {
+      "name": "HR / ofis administratori",
+      "weights": {
+        "yordam": 2,
+        "feedback": 2,
+        "ijtimoiylik": 2,
+        "masuliyat": 2,
+        "xusumat": 1
       }
     }
+  ],
+  "commonInterview": [
+    "Oldingi ishingizdan nima sababdan ketgansiz?"
   ],
   "questions": [
     {
       "id": 1,
-      "text": "Topshirilgan ishni belgilangan muddatdan oldin tugatishga harakat qilaman.",
-      "scale": "masuliyat",
+      "text": "Va'da qilgan ishimni hech kim eslatmasa ham o'z vaqtida bajaraman.",
+      "trait": "masuliyat",
       "key": "direct"
     },
     {
       "id": 2,
-      "text": "Kutilmagan muammo chiqsa, tezda sarosimaga tushib qolaman.",
-      "scale": "stress",
-      "key": "reverse"
+      "text": "Qilgan ishimni maqtashmasa, ko'nglim cho'kadi.",
+      "trait": "tasdiqlash",
+      "key": "direct"
     },
     {
       "id": 3,
-      "text": "Notanish odamlar bilan suhbatni oson boshlayman.",
-      "scale": "muloqot",
+      "text": "Ishni tezroq yoki yaxshiroq qilishning yangi yo'lini o'ylab topishni yoqtiraman.",
+      "trait": "innovatsiya",
       "key": "direct"
     },
     {
       "id": 4,
-      "text": "Hamkasbim xafa bo‘lsa, buni darhol sezaman.",
-      "scale": "hamdardlik",
+      "text": "Kimdir xato qilsa, jahlimni bosa olmay, keskin gapirib yuboraman.",
+      "trait": "xusumat",
       "key": "direct"
     },
     {
       "id": 5,
-      "text": "Hayotimda hech qachon hech kimdan xafa bo‘lmaganman.",
-      "scale": "samimiylik",
-      "key": "reverse"
+      "text": "Notanish odamlar bilan tez til topishaman.",
+      "trait": "ijtimoiylik",
+      "key": "direct"
     },
     {
       "id": 6,
-      "text": "Ba’zan ishni oxiriga yetkazmay, boshqa ishga o‘tib ketaman.",
-      "scale": "masuliyat",
-      "key": "reverse"
+      "text": "Muhim qarorni o'zim qabul qilmay, rahbar aytishini kutaman.",
+      "trait": "qaramlik",
+      "key": "direct"
     },
     {
       "id": 7,
-      "text": "Bosim ostida ham xotirjam qaror qabul qila olaman.",
-      "scale": "stress",
+      "text": "Hamkasblarim orasida eng yaxshi natija meniki bo'lishi men uchun muhim.",
+      "trait": "raqobat",
       "key": "direct"
     },
     {
       "id": 8,
-      "text": "Fikrimni ko‘pchilik oldida aytish men uchun juda qiyin.",
-      "scale": "muloqot",
-      "key": "reverse"
+      "text": "Ishimdagi xatoni ko'rsatishsa, bahslashishdan oldin oxirigacha tinglayman.",
+      "trait": "feedback",
+      "key": "direct"
     },
     {
       "id": 9,
-      "text": "Boshqalarning muammolari meni unchalik qiziqtirmaydi.",
-      "scale": "hamdardlik",
-      "key": "reverse"
+      "text": "Ish ko'payib ketsa, xavotirdan diqqatimni jamlay olmay qolaman.",
+      "trait": "ruhiy_bosim",
+      "key": "direct"
     },
     {
       "id": 10,
-      "text": "Men har doim, hech istisnosiz, barcha qoidalarga amal qilaman.",
-      "scale": "samimiylik",
-      "key": "reverse"
+      "text": "O'zimga avval erishganimdan kattaroq maqsad qo'yishni yaxshi ko'raman.",
+      "trait": "yutuq",
+      "key": "direct"
     },
     {
       "id": 11,
-      "text": "Xatoga yo‘l qo‘ysam, uni yashirmasdan rahbarimga aytaman.",
-      "scale": "masuliyat",
+      "text": "Boshqalarga topshirgan ishni ham qadam-baqadam tekshirib turaman.",
+      "trait": "nazorat",
       "key": "direct"
     },
     {
       "id": 12,
-      "text": "Tanqid eshitsam, kun bo‘yi kayfiyatim buzilib yuradi.",
-      "scale": "stress",
-      "key": "reverse"
+      "text": "Hamkasbim qiynalayotganini sezsam, so'ramasa ham yordam taklif qilaman.",
+      "trait": "yordam",
+      "key": "direct"
     },
     {
       "id": 13,
-      "text": "Murakkab narsani boshqalarga sodda tilda tushuntira olaman.",
-      "scale": "muloqot",
+      "text": "O'z fikrim to'g'ri ekaniga ishonsam, boshqalarning dalillariga quloq solmayman.",
+      "trait": "qattiqqollik",
       "key": "direct"
     },
     {
       "id": 14,
-      "text": "Mijozning ahvolini tushunish uchun uni oxirigacha tinglayman.",
-      "scale": "hamdardlik",
+      "text": "Ishni topshirishdan oldin xatosi yo'qligini yana bir bor tekshirib chiqaman.",
+      "trait": "masuliyat",
       "key": "direct"
     },
     {
       "id": 15,
-      "text": "Ba’zan ishga borgim kelmagan kunlar bo‘lgan.",
-      "scale": "samimiylik",
+      "text": "Odamlar xafa bo'lmasin deb, rozi bo'lmasam ham «xo'p» deyman.",
+      "trait": "tasdiqlash",
       "key": "direct"
     },
     {
       "id": 16,
-      "text": "Agar hech kim nazorat qilmasa, ishni keyinga qoldirishim mumkin.",
-      "scale": "masuliyat",
+      "text": "Imkon bo'lsa, odamlar bilan kamroq muloqot qiladigan ishni tanlayman.",
+      "trait": "ijtimoiylik",
       "key": "reverse"
     },
     {
       "id": 17,
-      "text": "Bir vaqtning o‘zida bir nechta vazifa bilan ishlay olaman va chalkashib ketmayman.",
-      "scale": "stress",
+      "text": "Bahsda ovozimni balandlatib yuborgan paytlarim bo'ladi.",
+      "trait": "xusumat",
       "key": "direct"
     },
     {
       "id": 18,
-      "text": "Telefonda notanish odam bilan gaplashishdan qochaman.",
-      "scale": "muloqot",
-      "key": "reverse"
+      "text": "Boshqalar oddiy deb o'tib ketgan narsada yangi imkoniyat ko'raman.",
+      "trait": "innovatsiya",
+      "key": "direct"
     },
     {
       "id": 19,
-      "text": "Har kim o‘z muammosini o‘zi hal qilishi kerak, men aralashmayman.",
-      "scale": "hamdardlik",
-      "key": "reverse"
+      "text": "Yangi vazifani boshlashdan oldin kimdandir tasdiq olishni xohlayman.",
+      "trait": "qaramlik",
+      "key": "direct"
     },
     {
       "id": 20,
-      "text": "Ba’zan kimgadir g‘azablangan paytlarim bo‘lgan.",
-      "scale": "samimiylik",
+      "text": "Qanday ishlayotganim haqida rahbarimdan o'zim fikr so'rayman.",
+      "trait": "feedback",
       "key": "direct"
     },
     {
       "id": 21,
-      "text": "Va’da bergan bo‘lsam, qiyin bo‘lsa ham uni bajaraman.",
-      "scale": "masuliyat",
-      "key": "direct"
+      "text": "Diqqat tekshiruvi: bu savolga «Mutlaqo qo'shilmayman» deb javob bering.",
+      "attention": true,
+      "expected": 0
     },
     {
       "id": 22,
-      "text": "Qo‘pol gapirgan odam bilan suhbatdan keyin uzoq vaqt o‘zimga kela olmayman.",
-      "scale": "stress",
-      "key": "reverse"
+      "text": "Kichik muammo ham meni uzoq vaqt bezovta qiladi.",
+      "trait": "ruhiy_bosim",
+      "key": "direct"
     },
     {
       "id": 23,
-      "text": "Bahsli vaziyatda ham o‘z fikrimni xotirjam va aniq bayon qilaman.",
-      "scale": "muloqot",
+      "text": "Natija ko'rinmaguncha, qiyin bo'lsa ham to'xtamayman.",
+      "trait": "yutuq",
       "key": "direct"
     },
     {
       "id": 24,
-      "text": "Kimdir qiynalayotganini ko‘rsam, so‘ramasa ham yordam taklif qilaman.",
-      "scale": "hamdardlik",
+      "text": "Vaziyat mening nazoratimda bo'lmasa, o'zimni noqulay his qilaman.",
+      "trait": "nazorat",
       "key": "direct"
     },
     {
       "id": 25,
-      "text": "Men hech qachon hech kimga yolg‘on gapirmaganman.",
-      "scale": "samimiylik",
-      "key": "reverse"
+      "text": "Reyting yoki musobaqa bo'lsa, ko'proq g'ayrat bilan ishlayman.",
+      "trait": "raqobat",
+      "key": "direct"
     },
     {
       "id": 26,
-      "text": "Ishga kechikish yoki muddatni o‘tkazib yuborish unchalik katta muammo emas.",
-      "scale": "masuliyat",
-      "key": "reverse"
+      "text": "Yangi kelgan xodimga ishni o'rganishida vaqt ajrataman.",
+      "trait": "yordam",
+      "key": "direct"
     },
     {
       "id": 27,
-      "text": "Ish rejasi to‘satdan o‘zgarsa, tezda yangi sharoitga moslasha olaman.",
-      "scale": "stress",
+      "text": "Ishni faqat o'zim bilgan usulda qilishni talab qilaman.",
+      "trait": "qattiqqollik",
       "key": "direct"
     },
     {
       "id": 28,
-      "text": "Jamoa yig‘ilishlarida odatda jim o‘tirishni afzal ko‘raman.",
-      "scale": "muloqot",
+      "text": "Ba'zan ishni «keyin qilaman» deb qoldirib, unutib qo'yaman.",
+      "trait": "masuliyat",
       "key": "reverse"
     },
     {
       "id": 29,
-      "text": "Boshqalarning his-tuyg‘ulariga e’tibor berish ishga xalaqit beradi.",
-      "scale": "hamdardlik",
-      "key": "reverse"
+      "text": "Hammaga yoqish men uchun muhim.",
+      "trait": "tasdiqlash",
+      "key": "direct"
     },
     {
       "id": 30,
-      "text": "Ba’zan boshqalarning muvaffaqiyatiga biroz havas qilganman.",
-      "scale": "samimiylik",
+      "text": "Jamoaviy tadbirlarda faol qatnashaman.",
+      "trait": "ijtimoiylik",
       "key": "direct"
     },
     {
       "id": 31,
-      "text": "Ishimning natijasi uchun javobgarlikni o‘z zimmamga olaman.",
-      "scale": "masuliyat",
+      "text": "Meni xafa qilgan odamni oson kechirmayman.",
+      "trait": "xusumat",
       "key": "direct"
     },
     {
       "id": 32,
-      "text": "Muhim ish oldidan qattiq hayajonlanaman va bu ishimga ta’sir qiladi.",
-      "scale": "stress",
+      "text": "Sinalgan usul bor ekan, yangisini o'ylab topishga hojat yo'q deb hisoblayman.",
+      "trait": "innovatsiya",
       "key": "reverse"
     },
     {
       "id": 33,
-      "text": "Yangi jamoada tezda til topishib ketaman.",
-      "scale": "muloqot",
+      "text": "Mustaqil ishlagandan ko'ra, kimdir yo'l ko'rsatib tursa, o'zimni xotirjam his qilaman.",
+      "trait": "qaramlik",
       "key": "direct"
     },
     {
       "id": 34,
-      "text": "Bahs paytida qarshi tomonning nuqtai nazarini ham tushunishga harakat qilaman.",
-      "scale": "hamdardlik",
-      "key": "direct"
+      "text": "Tanqid qilishsa, darrov o'zimni oqlashga tushaman.",
+      "trait": "feedback",
+      "key": "reverse"
     },
     {
       "id": 35,
-      "text": "Menda birorta ham salbiy odat yo‘q.",
-      "scale": "samimiylik",
+      "text": "Bosim kuchli bo'lgan paytda ham o'zimni xotirjam tutaman.",
+      "trait": "ruhiy_bosim",
       "key": "reverse"
     },
     {
       "id": 36,
-      "text": "Ish natijasi yomon bo‘lsa, odatda boshqalar yoki sharoit aybdor bo‘ladi.",
-      "scale": "masuliyat",
-      "key": "reverse"
+      "text": "Bir joyda bir xil darajada turib qolish meni bezovta qiladi.",
+      "trait": "yutuq",
+      "key": "direct"
     },
     {
       "id": 37,
-      "text": "Qiyin kundan keyin ham tezda o‘zimni tiklab olaman.",
-      "scale": "stress",
+      "text": "Ishni boshqaga ishonib topshirgandan ko'ra o'zim qilganim yaxshi deb o'ylayman.",
+      "trait": "nazorat",
       "key": "direct"
     },
     {
       "id": 38,
-      "text": "Tushunmagan narsamni so‘rashdan ko‘ra, o‘zim taxmin qilishni afzal ko‘raman.",
-      "scale": "muloqot",
-      "key": "reverse"
+      "text": "Birov mendan o'zib ketsa, uni quvib yetmaguncha tinchimayman.",
+      "trait": "raqobat",
+      "key": "direct"
     },
     {
       "id": 39,
-      "text": "Mijoz shikoyat qilsa, uning his-tuyg‘ulari emas, faqat qoida muhim.",
-      "scale": "hamdardlik",
-      "key": "reverse"
+      "text": "Boshqalarning yaxshi ishini ko'pchilik oldida maqtashni yoqtiraman.",
+      "trait": "yordam",
+      "key": "direct"
     },
     {
       "id": 40,
-      "text": "Ba’zan va’da qilgan ishimni unutib qo‘ygan paytlarim bo‘lgan.",
-      "scale": "samimiylik",
+      "text": "Rejalar o'zgarishini yoqtirmayman va unga qarshilik qilaman.",
+      "trait": "qattiqqollik",
       "key": "direct"
     }
   ]

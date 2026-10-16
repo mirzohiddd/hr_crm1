@@ -1,8 +1,9 @@
 """
 Nomzodlar uchun ochiq test (landing) va HR uchun natijalar.
 
-Joriy test (sotuv.json, format=profile): yangi kelgan xodimlar uchun 40 ta fikr, 4 bosqich × 10,
-javob 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman». Hisoblash va HR hisoboti — app/profile_test.py.
+Joriy test (sotuv.json, format=persona): «Ishdagi shaxsiyat 360» — 40 ta savol, 4 bosqich × 10,
+javob 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman». Hisoblash va HR hisoboti — app/persona_test.py
+(avval saqlangan format=profile natijalari — app/profile_test.py).
 
 Ochiq (login talab qilinmaydi):
     GET  /public/tests/{slug}          savolnoma (baholash kalitisiz) + bosqichlar (stages)
@@ -25,6 +26,7 @@ from collections import defaultdict, deque
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from .. import landing
+from .. import persona_test as ps
 from .. import profile_test as pt
 from ..schemas import LandingSubmitIn
 from ..security import current_user
@@ -67,6 +69,8 @@ SUMMARY_FIELDS = (
     "points", "maxPoints", "percent", "passPercent", "status", "viewed", "durationSec", "sections",
     # Profil testi: shkalalar foizi, ishonchlilik, eng mos lavozim, bog‘langan xodim
     "format", "scores", "reliability", "bestPosition", "employeeId",
+    # persona testi: profil nomi, ishonchlilik darajasi, samaradorlik / to‘sqinlik foizlari
+    "profileTitle", "reliabilityLevel", "positive", "negative",
 )
 
 
@@ -122,7 +126,7 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
         raise bad_request(str(e))
     _rate_limit(request)
 
-    result = landing.score(q, answers, body.duration_sec)
+    result = landing.score(q, answers, body.duration_sec, body.full_name)
     employee = _match_employee(store, body.full_name) if landing.is_profile(q) else None
     row = store.landing_results.insert({
         "employeeId": employee["id"] if employee else None,
@@ -160,6 +164,19 @@ def hr_tests():
 def hr_key(slug: str):
     q = _questionnaire(slug)
     key = landing.answer_key(q)
+    if landing.is_persona(q):
+        return {
+            "slug": q["slug"], "title": q["title"], "format": "persona", "options": q["options"],
+            "stageSize": q.get("stageSize", 10), "passPercent": None,
+            "sections": [{"id": t["id"], "title": t["title"], "description": t.get("description", ""), "group": t["group"]}
+                         for t in q["traits"]] + [{"id": "attention", "title": "Diqqat tekshiruvi",
+                                                   "description": "Noto‘g‘ri javob — natija ishonchsiz"}],
+            "directions": [{"id": d["id"], "title": d["title"], "traits": d["traits"], "goodHigh": d.get("goodHigh", True)}
+                           for d in q.get("directions") or []],
+            "pairs": q.get("pairs") or [],
+            "roles": q.get("roles") or [],
+            "maxPoints": sum(k["maxPoints"] for k in key if not k.get("attention")), "questions": key,
+        }
     if landing.is_profile(q):
         sid = q["sincerity"]["id"]
         return {
@@ -196,8 +213,10 @@ def hr_results():
 def hr_result(result_id: int):
     row = get_or_404(get_store().landing_results, result_id, "Natija")
     row.pop("clientId", None)
-    if row.get("format") == "profile" and row.get("report"):
-        # To‘liq matnli HR hisoboti (nusxalash uchun) — saqlangan natijadan tuziladi
+    if row.get("format") == "persona" and row.get("report"):
+        # Nusxalash uchun matn ("ISHDAGI SHAXSIYAT 360 — NATIJA") — saqlangan natijadan tuziladi
+        row["reportText"] = ps.report_text(row)
+    elif row.get("format") == "profile" and row.get("report"):
         row["reportText"] = pt.report_text(row)
     return row
 

@@ -47,9 +47,15 @@ export const LANDING_RESULT_LABELS = {
   'Suhbatda aniqlashtirish': 'Suhbatda aniqlashtirish',
   'Qo‘shimcha baholash kerak': 'Qo‘shimcha baholash kerak',
   'Ishonchsiz natija': 'Ishonchsiz natija',
+  // «Ishdagi shaxsiyat 360» (format=persona) — HR xulosasi (backend/app/persona_test.py)
+  'Ishga olish tavsiya etiladi': 'Ishga olish tavsiya etiladi',
+  'Suhbatdan keyin qaror qiling': 'Suhbatdan keyin qaror qiling',
+  'Ehtiyotkorlik bilan': 'Ehtiyotkorlik bilan',
+  'Natija ishonchsiz': 'Natija ishonchsiz',
 }
-/** Ijobiy natija: eski testdan o‘tgan yoki 40 savolli testda "Tavsiya etiladi" */
-export const isLandingPositive = (r) => r?.status === 'O‘tdi' || r?.status === 'Tavsiya etiladi'
+/** Ijobiy natija: eski testdan o‘tgan yoki 40 savolli testda ishga olish tavsiya etilgan */
+export const isLandingPositive = (r) => ['O‘tdi', 'Tavsiya etiladi', 'Ishga olish tavsiya etiladi'].includes(r?.status)
+export const isLandingUnreliable = (r) => r?.status === 'Ishonchsiz natija' || r?.status === 'Natija ishonchsiz'
 export const LANDING_TEST_SLUG = 'sotuv'
 
 // ---------- Foydalanuvchilar ----------

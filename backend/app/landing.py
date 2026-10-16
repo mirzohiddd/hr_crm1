@@ -4,10 +4,11 @@ Nomzodlar uchun ochiq test (landing) — savolnoma, baholash kaliti va hisoblash
 Savolnomalar: app/landing_tests/<slug>.json (masalan, sotuv.json).
 Natijalar:    data/landing_results.json
 
-Ikki format:
-- "format": "profile" (joriy sotuv.json) — yangi kelgan xodimlar uchun 40 ta fikr, 4 bosqich × 10,
-  javob 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman». Hisoblash va HR hisoboti — app/profile_test.py
-  (shkalalar, teskari va samimiylik savollari, ishonchlilik, lavozimga moslik).
+Formatlar:
+- "format": "persona" (joriy sotuv.json) — «Ishdagi shaxsiyat 360»: 40 ta savol, 4 bosqich × 10,
+  javob 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman»; 13 xususiyat, 4 yo‘nalish, diqqat tekshiruvi.
+  Hisoblash va HR hisoboti — app/persona_test.py.
+- "format": "profile" — 4 shkalali 40 savolli test (app/profile_test.py); avval saqlangan natijalar uchun.
 - eski format (scale/choice) — quyidagi qoidalar bo‘yicha (o‘zgarmagan).
 
 Baholash (eski format, HR bilan kelishilgan kalit):
@@ -21,9 +22,11 @@ import json
 import re
 from pathlib import Path
 
+from . import persona_test as ps
 from . import profile_test as pt
 
 FORMAT_PROFILE = "profile"
+FORMAT_PERSONA = "persona"
 LANDING_DIR = Path(__file__).resolve().parent / "landing_tests"
 LETTERS = "ABCDEFGH"
 STATUS_PASSED = "O‘tdi"
@@ -75,9 +78,9 @@ def load_questionnaire(slug: str) -> dict | None:
         # Yakuniy bilim testi (kind=final) — boshqa format, final_test.py da ishlanadi
         if raw.get("kind") == "final":
             data = None
-        elif raw.get("format") == FORMAT_PROFILE:
+        elif raw.get("format") in (FORMAT_PROFILE, FORMAT_PERSONA):
             try:
-                data = pt.validate_config(raw)
+                data = (ps if raw["format"] == FORMAT_PERSONA else pt).validate_config(raw)
             except ValueError as e:
                 raise QuestionnaireError(f"{path.name}: {e}")
         else:
@@ -98,7 +101,12 @@ def list_questionnaires() -> list[dict]:
 
 
 def is_profile(q: dict) -> bool:
-    return q.get("format") == FORMAT_PROFILE
+    """Bosqichli (4 × 10) «Qo‘shilmayman»/«Qo‘shilaman» testi: persona yoki profile formati."""
+    return q.get("format") in (FORMAT_PROFILE, FORMAT_PERSONA)
+
+
+def is_persona(q: dict) -> bool:
+    return q.get("format") == FORMAT_PERSONA
 
 
 def position_names(q: dict) -> list[str]:
@@ -115,10 +123,10 @@ def public_view(q: dict) -> dict:
     """Nomzodga ko‘rinadigan shakl — baholash kaliti (key, keyNote, points) olib tashlanadi."""
     if is_profile(q):
         return {
-            "slug": q["slug"], "format": FORMAT_PROFILE, "title": q["title"],
+            "slug": q["slug"], "format": q["format"], "title": q["title"],
             "subtitle": q.get("subtitle", ""), "description": q.get("description", ""),
             "positions": position_names(q), "options": q["options"],
-            "stageSize": q.get("stageSize", 10), "stages": pt.stages(q),
+            "stageSize": q.get("stageSize", 10), "stages": (ps if is_persona(q) else pt).stages(q),
             # Kalit (key, scale, samimiylik, og‘irliklar) yuborilmaydi — faqat matn va variantlar
             "questions": [{"id": i["id"], "text": i["text"], "options": i["options"]} for i in q["questions"]],
         }
@@ -140,6 +148,23 @@ def _max_points(q: dict, item: dict) -> float:
 
 def answer_key(q: dict) -> list[dict]:
     """HR uchun baholash kaliti: har savolda qaysi javob qancha ball beradi."""
+    if is_persona(q):
+        titles = {t["id"]: t["title"] for t in q["traits"]}
+        rows = []
+        for item in q["questions"]:
+            if item.get("attention"):
+                choices = [{"label": str(i), "text": t, "points": int(i == item["expected"])} for i, t in enumerate(q["options"])]
+                rows.append({"id": item["id"], "section": "attention", "type": "agree", "text": item["text"], "key": None,
+                             "attention": True, "keyNote": f"Diqqat tekshiruvi: to‘g‘ri javob — «{q['options'][item['expected']]}»",
+                             "choices": [{**c, "best": c["points"] == 1} for c in choices], "maxPoints": 1})
+                continue
+            choices = [{"label": str(i), "text": t, "points": ps.item_point(item["key"], i)} for i, t in enumerate(q["options"])]
+            rows.append({
+                "id": item["id"], "section": item["trait"], "type": "agree", "text": item["text"], "key": item["key"],
+                "keyNote": titles[item["trait"]] + (" · teskari savol" if item["key"] == "reverse" else ""),
+                "choices": [{**c, "best": c["points"] == 1} for c in choices], "maxPoints": 1,
+            })
+        return rows
     if is_profile(q):
         titles = {s["id"]: s["title"] for s in q["scales"]}
         sid = q["sincerity"]["id"]
@@ -217,8 +242,10 @@ def validate_answers(q: dict, answers: dict) -> dict[int, int]:
     return clean
 
 
-def score(q: dict, answers: dict[int, int], duration_sec: int | None = None) -> dict:
+def score(q: dict, answers: dict[int, int], duration_sec: int | None = None, full_name: str = "") -> dict:
     """Javoblarni kalit bo‘yicha baholaydi va har bir savol tahlilini qaytaradi."""
+    if is_persona(q):
+        return ps.grade(q, answers, duration_sec, full_name)
     if is_profile(q):
         g = pt.grade(q, answers, duration_sec)
         # Ro‘yxat uchun "sections" — shkalalar bo‘yicha ball (eski natijalar bilan bir xil shakl)

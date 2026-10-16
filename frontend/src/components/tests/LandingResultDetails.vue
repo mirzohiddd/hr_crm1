@@ -8,6 +8,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
 import ProfileReport from './ProfileReport.vue'
+import PersonaReport from './PersonaReport.vue'
 import { landingResultsApi } from '@/api/landing'
 import { useLandingStore } from '@/stores/landing'
 import { LANDING_RESULT_LABELS } from '@/constants'
@@ -53,6 +54,8 @@ watch(
 
 const passed = computed(() => detail.value?.status === 'O‘tdi')
 const isProfile = computed(() => detail.value?.format === 'profile')
+// «Ishdagi shaxsiyat 360»: katta foiz kartasi o‘rniga to‘liq hisobot (PersonaReport)
+const isPersona = computed(() => detail.value?.format === 'persona')
 const items = computed(() => detail.value?.items || [])
 const notBest = computed(() => items.value.filter((i) => i.points < i.maxPoints))
 const shown = computed(() => (filter.value === 'weak' ? notBest.value : items.value))
@@ -94,8 +97,8 @@ const pointTone = (i) => (i.points === i.maxPoints ? 'text-emerald-600' : i.poin
 
     <template v-else-if="detail">
       <!-- Xulosa -->
-      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
-        <dl class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
+      <div :class="['grid gap-4', !isPersona && 'lg:grid-cols-[minmax(0,1fr)_300px]']">
+        <dl :class="['grid grid-cols-2 gap-3 text-sm', isPersona ? 'sm:grid-cols-4' : 'sm:grid-cols-3']">
           <div class="info col-span-2"><dt><User class="h-3.5 w-3.5" /> F.I.Sh.</dt><dd>{{ detail.fullName }}</dd></div>
           <div class="info"><dt><Briefcase class="h-3.5 w-3.5" /> Lavozim</dt><dd>{{ detail.position }}</dd></div>
           <div class="info"><dt><User class="h-3.5 w-3.5" /> Yosh</dt><dd>{{ detail.age }}</dd></div>
@@ -125,7 +128,7 @@ const pointTone = (i) => (i.points === i.maxPoints ? 'text-emerald-600' : i.poin
           </ul>
         </div>
 
-        <div v-else :class="['flex items-center gap-4 rounded-2xl border p-4', passed ? 'border-emerald-100 bg-emerald-50/60' : 'border-red-100 bg-red-50/60']">
+        <div v-else-if="!isPersona" :class="['flex items-center gap-4 rounded-2xl border p-4', passed ? 'border-emerald-100 bg-emerald-50/60' : 'border-red-100 bg-red-50/60']">
           <svg viewBox="0 0 80 80" class="h-20 w-20 shrink-0 -rotate-90" aria-hidden="true">
             <circle cx="40" cy="40" :r="R" fill="none" stroke="currentColor" stroke-width="8" class="text-white" />
             <circle cx="40" cy="40" :r="R" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" :stroke-dasharray="dash" :class="['transition-all duration-700', passed ? 'text-emerald-500' : 'text-red-500']" />
@@ -138,7 +141,8 @@ const pointTone = (i) => (i.points === i.maxPoints ? 'text-emerald-600' : i.poin
         </div>
       </div>
 
-      <ProfileReport v-if="isProfile" :key="detail.id" :detail="detail" class="mt-6" />
+      <PersonaReport v-if="isPersona" :key="`p-${detail.id}`" :detail="detail" class="mt-5" />
+      <ProfileReport v-else-if="isProfile" :key="detail.id" :detail="detail" class="mt-6" />
 
       <template v-else>
       <!-- Bo‘limlar -->
@@ -213,7 +217,7 @@ const pointTone = (i) => (i.points === i.maxPoints ? 'text-emerald-600' : i.poin
 
           <p class="mt-2.5 text-[13px] sm:pl-11">
             <span class="text-muted">Tanlangan javob:</span>{{ ' ' }}
-            <b class="text-ink">{{ q.type === 'scale' ? `${q.answerLabel} — ${q.answerText}` : `${q.answerLabel}) ${q.answerText}` }}</b>
+            <b class="text-ink">{{ q.type === 'scale' ? `${q.answerLabel} — ${q.answerText}` : q.answerLabel !== undefined ? `${q.answerLabel}) ${q.answerText}` : q.options?.[q.answer] ?? '—' }}</b>
           </p>
         </li>
       </ol>

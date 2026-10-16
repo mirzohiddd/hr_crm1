@@ -4,7 +4,8 @@
  * Login talab qilinmaydi. Savollar backenddan olinadi (backend/app/landing_tests/<slug>.json),
  * hisoblash serverda, natija HR CRM → Testlar → "Nomzodlar testi" bo‘limiga tushadi.
  *
- * Joriy test (format=profile): 40 ta fikr 4 bosqichda (har birida 10 ta), javob — «Qo‘shilmayman» / «Qo‘shilaman».
+ * Joriy test (format=persona, «Ishdagi shaxsiyat 360»): 40 ta savol 4 bosqichda (har birida 10 ta),
+ * javob — «Qo‘shilmayman» / «Qo‘shilaman».
  *   "Oldinga" — bosqichdagi barcha savollarga javob berilgach; "Orqaga" — oldingi bosqichga (javoblar saqlanadi,
  *   1-bosqichda — ma’lumotlarga); 4-bosqichda "Testni yakunlash". HR uchun batafsil hisobot — backendda.
  * Eski formatdagi savolnomalar (1–5 shkala, A/B/C/D) avvalgidek bitta-bitta savol bilan ishlaydi.
@@ -23,7 +24,7 @@ import { formatDate, onlyDigits, slugFromPath, todayISO } from '@/utils'
 
 const slug = computed(() => slugFromPath())
 // 40 savolli test qoralamasi eski (20 savolli) test qoralamasi bilan aralashmasin
-const DRAFT_KEY = computed(() => `hr-crm:landing:${slug.value}${test.value?.format === 'profile' ? ':profile' : ''}`)
+const DRAFT_KEY = computed(() => `hr-crm:landing:${slug.value}${['profile', 'persona'].includes(test.value?.format) ? `:${test.value.format}` : ''}`)
 const LETTERS = 'ABCDEFGH'
 
 // ---------- Savolnoma ----------
@@ -39,7 +40,8 @@ const sections = computed(() =>
   }),
 )
 const sectionOf = (q) => sections.value.find((s) => s.id === q?.section)
-const isProfile = computed(() => test.value?.format === 'profile')
+// Bosqichli «Qo‘shilmayman»/«Qo‘shilaman» testi: persona («Ishdagi shaxsiyat 360») yoki profile formati
+const isProfile = computed(() => ['profile', 'persona'].includes(test.value?.format))
 const agreeOptions = computed(() => test.value?.options || ['Qo‘shilmayman', 'Qo‘shilaman'])
 
 // ---------- Holat ----------
@@ -399,7 +401,7 @@ const steps = computed(() =>
   isProfile.value
     ? [
         { icon: UserRound, title: 'Ma’lumotlaringiz', text: 'F.I.Sh., yosh va lavozim' },
-        { icon: Layers, title: `${total.value} ta fikr · ${stageCount.value} bosqich`, text: '«Qo‘shilmayman» yoki «Qo‘shilaman» — samimiy javob bering' },
+        { icon: Layers, title: `${total.value} ta savol · ${stageCount.value} bosqich`, text: '«Qo‘shilmayman» yoki «Qo‘shilaman» — samimiy javob bering' },
         { icon: BadgeCheck, title: 'HR suhbati', text: 'Natijani HR ko‘rib chiqib siz bilan bog‘lanadi' },
       ]
     : [

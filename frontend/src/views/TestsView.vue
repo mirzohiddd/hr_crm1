@@ -241,9 +241,9 @@ async function confirmDelete() {
     </div>
     <div v-else-if="tab === 'landing'" class="stagger grid grid-cols-2 gap-4 lg:grid-cols-4">
       <StatCard label="Test topshirganlar" :value="landing.stats.total" :icon="UserRoundCheck" :loading="!landing.loaded && landing.loading" :hint="landing.stats.unseen ? `${landing.stats.unseen} ta yangi natija` : 'Barchasi ko‘rib chiqilgan'" />
-      <StatCard label="Tavsiya etiladi" :value="landing.stats.passed" :icon="CheckCircle2" tone="green" :loading="!landing.loaded && landing.loading" hint="Profil mos va ishonchli (eski testda — o‘tdi)" />
-      <StatCard label="E’tibor talab qiladi" :value="landing.stats.failed" :icon="XCircle" tone="red" :loading="!landing.loaded && landing.loading" :hint="landing.stats.unreliable ? `${landing.stats.unreliable} ta ishonchsiz natija` : 'Suhbatda aniqlashtirish'" />
-      <StatCard label="O‘rtacha profil indeksi" :value="`${landing.stats.avg}%`" :icon="Percent" :loading="!landing.loaded && landing.loading" :hint="landing.stats.avgReliability !== null ? `O‘rtacha ishonchlilik: ${landing.stats.avgReliability}%` : 'Barcha topshirishlar bo‘yicha'" />
+      <StatCard label="Tavsiya etiladi" :value="landing.stats.passed" :icon="CheckCircle2" tone="green" :loading="!landing.loaded && landing.loading" hint="Ishga olish tavsiya etilganlar" />
+      <StatCard label="E’tibor talab qiladi" :value="landing.stats.failed" :icon="XCircle" tone="red" :loading="!landing.loaded && landing.loading" hint="Suhbatda aniqlashtirish" />
+      <StatCard label="Ishonchsiz natijalar" :value="landing.stats.unreliable" :icon="Percent" :loading="!landing.loaded && landing.loading" hint="Qayta topshirish kerak" />
     </div>
     <div v-else class="stagger grid grid-cols-2 gap-4 lg:grid-cols-4">
       <StatCard label="Topshirish kutilmoqda" :value="store.stats.pending" :icon="Clock" tone="amber" :loading="firstLoad" hint="Darsni tugatgan xodimlar" />

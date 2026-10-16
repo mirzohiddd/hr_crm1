@@ -1,0 +1,380 @@
+{
+  "_izoh": [
+    "Yangi kelgan xodimlar / nomzodlar uchun shaxsiy-kasbiy test (landing: /test/sotuv). 40 ta fikr, 4 bosqich × 10 ta (stageSize). Tartib — shu fayldagi tartib.",
+    "Javob variantlari: 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman».",
+    "Har bir savol: id, text, scale (shkala id si), key. key=direct — «Qo‘shilaman» 1 ball; key=reverse (teskari savol) — «Qo‘shilmayman» 1 ball.",
+    "scale='samimiylik' — samimiylikni tekshiruvchi savollar: asosiy ko‘rsatkichlarga qo‘shilmaydi, faqat natija ishonchliligiga ta’sir qiladi (1 ball = samimiy javob).",
+    "pairs — bir shkaladagi qarama-qarshi kalitli juft savollar: ularga ziddiyatli javob berilsa, ishonchlilik pasayadi.",
+    "positions — ro‘yxatdan o‘tishda tanlanadigan lavozimlar va lavozimga moslik og‘irliklari (weights): moslik = shkala foizlarining og‘irlikli o‘rtachasi.",
+    "Hisoblash va HR hisoboti: backend/app/profile_test.py. Bu test klinik tashxis emas.",
+    "Savol matnini o‘zgartirsangiz, serverni qayta ishga tushirish shart emas. Avval topshirilgan natijalarda savollar nusxasi saqlanadi."
+  ],
+  "format": "profile",
+  "slug": "sotuv",
+  "title": "Yangi xodimlar uchun shaxsiy-kasbiy test",
+  "subtitle": "4 bosqich · 40 ta fikr · «Qo‘shilmayman» yoki «Qo‘shilaman»",
+  "description": "Har bir fikrni o‘qing va o‘zingizga mosini tanlang. To‘g‘ri yoki noto‘g‘ri javob yo‘q — birinchi xayolingizga kelgan, samimiy javobni bering.",
+  "stageSize": 10,
+  "options": [
+    "Qo‘shilmayman",
+    "Qo‘shilaman"
+  ],
+  "scales": [
+    {
+      "id": "masuliyat",
+      "title": "Mas’uliyat",
+      "short": "Mas’uliyat",
+      "description": "Vazifani muddatida va oxirigacha bajarish, xato uchun javobgarlikni olish"
+    },
+    {
+      "id": "stress",
+      "title": "Stressga chidamlilik",
+      "short": "Stress",
+      "description": "Bosim, tanqid va kutilmagan vaziyatda xotirjamlikni saqlash"
+    },
+    {
+      "id": "muloqot",
+      "title": "Muloqot",
+      "short": "Muloqot",
+      "description": "Notanish odamlar bilan til topishish, fikrni aniq bayon qilish"
+    },
+    {
+      "id": "hamdardlik",
+      "title": "Hamdardlik",
+      "short": "Hamdardlik",
+      "description": "Boshqalarning holatini sezish, tinglash va yordam berish"
+    }
+  ],
+  "sincerity": {
+    "id": "samimiylik",
+    "title": "Samimiylik"
+  },
+  "pairs": [
+    [
+      1,
+      16
+    ],
+    [
+      31,
+      36
+    ],
+    [
+      7,
+      2
+    ],
+    [
+      37,
+      12
+    ],
+    [
+      3,
+      18
+    ],
+    [
+      23,
+      8
+    ],
+    [
+      4,
+      9
+    ],
+    [
+      24,
+      19
+    ]
+  ],
+  "positions": [
+    {
+      "name": "Sotuv menejeri",
+      "description": "Mijoz bilan savdo suhbati va bitimni yopish",
+      "weights": {
+        "muloqot": 0.4,
+        "stress": 0.3,
+        "masuliyat": 0.2,
+        "hamdardlik": 0.1
+      }
+    },
+    {
+      "name": "Sotuv operatori (Call Center)",
+      "description": "Kiruvchi va chiquvchi qo‘ng‘iroqlar",
+      "weights": {
+        "stress": 0.35,
+        "muloqot": 0.3,
+        "hamdardlik": 0.2,
+        "masuliyat": 0.15
+      }
+    },
+    {
+      "name": "Savdo maslahatchisi",
+      "description": "Mijozga mahsulot tanlashda maslahat",
+      "weights": {
+        "muloqot": 0.35,
+        "hamdardlik": 0.3,
+        "masuliyat": 0.2,
+        "stress": 0.15
+      }
+    },
+    {
+      "name": "Marketing",
+      "description": "Reklama kampaniyalari va kontent",
+      "weights": {
+        "muloqot": 0.3,
+        "masuliyat": 0.3,
+        "hamdardlik": 0.25,
+        "stress": 0.15
+      }
+    },
+    {
+      "name": "Logistika",
+      "description": "Yetkazib berish, kuryerlar, ombor nazorati",
+      "weights": {
+        "masuliyat": 0.45,
+        "stress": 0.35,
+        "muloqot": 0.15,
+        "hamdardlik": 0.05
+      }
+    }
+  ],
+  "questions": [
+    {
+      "id": 1,
+      "text": "Topshirilgan ishni belgilangan muddatdan oldin tugatishga harakat qilaman.",
+      "scale": "masuliyat",
+      "key": "direct"
+    },
+    {
+      "id": 2,
+      "text": "Kutilmagan muammo chiqsa, tezda sarosimaga tushib qolaman.",
+      "scale": "stress",
+      "key": "reverse"
+    },
+    {
+      "id": 3,
+      "text": "Notanish odamlar bilan suhbatni oson boshlayman.",
+      "scale": "muloqot",
+      "key": "direct"
+    },
+    {
+      "id": 4,
+      "text": "Hamkasbim xafa bo‘lsa, buni darhol sezaman.",
+      "scale": "hamdardlik",
+      "key": "direct"
+    },
+    {
+      "id": 5,
+      "text": "Hayotimda hech qachon hech kimdan xafa bo‘lmaganman.",
+      "scale": "samimiylik",
+      "key": "reverse"
+    },
+    {
+      "id": 6,
+      "text": "Ba’zan ishni oxiriga yetkazmay, boshqa ishga o‘tib ketaman.",
+      "scale": "masuliyat",
+      "key": "reverse"
+    },
+    {
+      "id": 7,
+      "text": "Bosim ostida ham xotirjam qaror qabul qila olaman.",
+      "scale": "stress",
+      "key": "direct"
+    },
+    {
+      "id": 8,
+      "text": "Fikrimni ko‘pchilik oldida aytish men uchun juda qiyin.",
+      "scale": "muloqot",
+      "key": "reverse"
+    },
+    {
+      "id": 9,
+      "text": "Boshqalarning muammolari meni unchalik qiziqtirmaydi.",
+      "scale": "hamdardlik",
+      "key": "reverse"
+    },
+    {
+      "id": 10,
+      "text": "Men har doim, hech istisnosiz, barcha qoidalarga amal qilaman.",
+      "scale": "samimiylik",
+      "key": "reverse"
+    },
+    {
+      "id": 11,
+      "text": "Xatoga yo‘l qo‘ysam, uni yashirmasdan rahbarimga aytaman.",
+      "scale": "masuliyat",
+      "key": "direct"
+    },
+    {
+      "id": 12,
+      "text": "Tanqid eshitsam, kun bo‘yi kayfiyatim buzilib yuradi.",
+      "scale": "stress",
+      "key": "reverse"
+    },
+    {
+      "id": 13,
+      "text": "Murakkab narsani boshqalarga sodda tilda tushuntira olaman.",
+      "scale": "muloqot",
+      "key": "direct"
+    },
+    {
+      "id": 14,
+      "text": "Mijozning ahvolini tushunish uchun uni oxirigacha tinglayman.",
+      "scale": "hamdardlik",
+      "key": "direct"
+    },
+    {
+      "id": 15,
+      "text": "Ba’zan ishga borgim kelmagan kunlar bo‘lgan.",
+      "scale": "samimiylik",
+      "key": "direct"
+    },
+    {
+      "id": 16,
+      "text": "Agar hech kim nazorat qilmasa, ishni keyinga qoldirishim mumkin.",
+      "scale": "masuliyat",
+      "key": "reverse"
+    },
+    {
+      "id": 17,
+      "text": "Bir vaqtning o‘zida bir nechta vazifa bilan ishlay olaman va chalkashib ketmayman.",
+      "scale": "stress",
+      "key": "direct"
+    },
+    {
+      "id": 18,
+      "text": "Telefonda notanish odam bilan gaplashishdan qochaman.",
+      "scale": "muloqot",
+      "key": "reverse"
+    },
+    {
+      "id": 19,
+      "text": "Har kim o‘z muammosini o‘zi hal qilishi kerak, men aralashmayman.",
+      "scale": "hamdardlik",
+      "key": "reverse"
+    },
+    {
+      "id": 20,
+      "text": "Ba’zan kimgadir g‘azablangan paytlarim bo‘lgan.",
+      "scale": "samimiylik",
+      "key": "direct"
+    },
+    {
+      "id": 21,
+      "text": "Va’da bergan bo‘lsam, qiyin bo‘lsa ham uni bajaraman.",
+      "scale": "masuliyat",
+      "key": "direct"
+    },
+    {
+      "id": 22,
+      "text": "Qo‘pol gapirgan odam bilan suhbatdan keyin uzoq vaqt o‘zimga kela olmayman.",
+      "scale": "stress",
+      "key": "reverse"
+    },
+    {
+      "id": 23,
+      "text": "Bahsli vaziyatda ham o‘z fikrimni xotirjam va aniq bayon qilaman.",
+      "scale": "muloqot",
+      "key": "direct"
+    },
+    {
+      "id": 24,
+      "text": "Kimdir qiynalayotganini ko‘rsam, so‘ramasa ham yordam taklif qilaman.",
+      "scale": "hamdardlik",
+      "key": "direct"
+    },
+    {
+      "id": 25,
+      "text": "Men hech qachon hech kimga yolg‘on gapirmaganman.",
+      "scale": "samimiylik",
+      "key": "reverse"
+    },
+    {
+      "id": 26,
+      "text": "Ishga kechikish yoki muddatni o‘tkazib yuborish unchalik katta muammo emas.",
+      "scale": "masuliyat",
+      "key": "reverse"
+    },
+    {
+      "id": 27,
+      "text": "Ish rejasi to‘satdan o‘zgarsa, tezda yangi sharoitga moslasha olaman.",
+      "scale": "stress",
+      "key": "direct"
+    },
+    {
+      "id": 28,
+      "text": "Jamoa yig‘ilishlarida odatda jim o‘tirishni afzal ko‘raman.",
+      "scale": "muloqot",
+      "key": "reverse"
+    },
+    {
+      "id": 29,
+      "text": "Boshqalarning his-tuyg‘ulariga e’tibor berish ishga xalaqit beradi.",
+      "scale": "hamdardlik",
+      "key": "reverse"
+    },
+    {
+      "id": 30,
+      "text": "Ba’zan boshqalarning muvaffaqiyatiga biroz havas qilganman.",
+      "scale": "samimiylik",
+      "key": "direct"
+    },
+    {
+      "id": 31,
+      "text": "Ishimning natijasi uchun javobgarlikni o‘z zimmamga olaman.",
+      "scale": "masuliyat",
+      "key": "direct"
+    },
+    {
+      "id": 32,
+      "text": "Muhim ish oldidan qattiq hayajonlanaman va bu ishimga ta’sir qiladi.",
+      "scale": "stress",
+      "key": "reverse"
+    },
+    {
+      "id": 33,
+      "text": "Yangi jamoada tezda til topishib ketaman.",
+      "scale": "muloqot",
+      "key": "direct"
+    },
+    {
+      "id": 34,
+      "text": "Bahs paytida qarshi tomonning nuqtai nazarini ham tushunishga harakat qilaman.",
+      "scale": "hamdardlik",
+      "key": "direct"
+    },
+    {
+      "id": 35,
+      "text": "Menda birorta ham salbiy odat yo‘q.",
+      "scale": "samimiylik",
+      "key": "reverse"
+    },
+    {
+      "id": 36,
+      "text": "Ish natijasi yomon bo‘lsa, odatda boshqalar yoki sharoit aybdor bo‘ladi.",
+      "scale": "masuliyat",
+      "key": "reverse"
+    },
+    {
+      "id": 37,
+      "text": "Qiyin kundan keyin ham tezda o‘zimni tiklab olaman.",
+      "scale": "stress",
+      "key": "direct"
+    },
+    {
+      "id": 38,
+      "text": "Tushunmagan narsamni so‘rashdan ko‘ra, o‘zim taxmin qilishni afzal ko‘raman.",
+      "scale": "muloqot",
+      "key": "reverse"
+    },
+    {
+      "id": 39,
+      "text": "Mijoz shikoyat qilsa, uning his-tuyg‘ulari emas, faqat qoida muhim.",
+      "scale": "hamdardlik",
+      "key": "reverse"
+    },
+    {
+      "id": 40,
+      "text": "Ba’zan va’da qilgan ishimni unutib qo‘ygan paytlarim bo‘lgan.",
+      "scale": "samimiylik",
+      "key": "direct"
+    }
+  ]
+}
