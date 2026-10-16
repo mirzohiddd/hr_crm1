@@ -17,11 +17,15 @@ import LandingKeyModal from './LandingKeyModal.vue'
 import { useLandingStore } from '@/stores/landing'
 import { useToast } from '@/composables/useToast'
 import { usePagination } from '@/composables/usePagination'
-import { LANDING_RESULT_LABELS, LANDING_TEST_SLUG } from '@/constants'
+import { LANDING_RESULT_LABELS, LANDING_TEST_SLUG, isLandingPositive } from '@/constants'
 import { formatDateTime } from '@/utils/date'
 import { downloadCsv, normalizeText, onlyDigits } from '@/utils/format'
 
-/** Landing (/test/sotuv) orqali test topshirgan nomzodlar — har biri alohida qator */
+/**
+ * Landing (/test/sotuv) orqali test topshirgan yangi xodimlar / nomzodlar — har biri alohida qator.
+ * 40 savolli test (format=profile): ko‘rsatkichlar, ishonchlilik, eng mos lavozim va HR tavsiyasi;
+ * eski test natijalari — ball va foiz (o‘zgarmagan holda).
+ */
 const store = useLandingStore()
 const toast = useToast()
 
@@ -40,16 +44,23 @@ const status = ref('')
 const position = ref('')
 const statusTabs = computed(() => [
   { value: '', label: 'Barchasi', count: store.stats.total },
-  { value: 'O‘tdi', label: 'Testdan o‘tdi', count: store.stats.passed },
-  { value: 'Yiqildi', label: 'Testdan yiqildi', count: store.stats.failed },
+  { value: 'good', label: 'Tavsiya etiladi / o‘tdi', count: store.stats.passed },
+  { value: 'attention', label: 'E’tibor talab qiladi', count: store.stats.failed },
 ])
+const isProfile = (r) => r?.format === 'profile'
+const SCALE_SHORT = { masuliyat: 'Mas’ul.', stress: 'Stress', muloqot: 'Muloq.', hamdardlik: 'Hamd.' }
+const SCALE_TITLE = { masuliyat: 'Mas’uliyat', stress: 'Stressga chidamlilik', muloqot: 'Muloqot', hamdardlik: 'Hamdardlik' }
+const scaleLabel = (id, r) => SCALE_SHORT[id] || r?.sections?.find((s) => s.id === id)?.title || id
+const scaleTitle = (id, r) => r?.sections?.find((s) => s.id === id)?.title || SCALE_TITLE[id] || id
+const levelBar = (p) => (p >= 75 ? 'bg-emerald-500' : p >= 50 ? 'bg-amber-500' : 'bg-red-500')
+const relTone = (p) => (p >= 75 ? 'text-emerald-600' : p >= 50 ? 'text-amber-600' : 'text-red-600')
 const positions = computed(() => [...new Set(store.items.map((r) => r.position).filter(Boolean))].sort())
 const filtered = computed(() => {
   const q = normalizeText(search.value)
   const digits = onlyDigits(search.value)
   return store.items.filter(
     (r) =>
-      (!status.value || r.status === status.value) &&
+      (!status.value || (status.value === 'good') === isLandingPositive(r)) &&
       (!position.value || r.position === position.value) &&
       (!q || normalizeText(r.fullName).includes(q) || (digits.length >= 3 && onlyDigits(r.phone).includes(digits))),
   )
@@ -64,8 +75,17 @@ function clearFilters() {
 function exportCsv() {
   downloadCsv(
     `nomzodlar-testi-${new Date().toISOString().slice(0, 10)}.csv`,
-    ['F.I.Sh.', 'Lavozim', 'Yosh', 'Telefon', 'Sana', 'Topshirilgan vaqt', 'Ball', 'Maksimal ball', 'Foiz', 'Holati'],
-    filtered.value.map((r) => [r.fullName, r.position, r.age, r.phone, r.date, formatDateTime(r.submittedAt), r.points, r.maxPoints, `${r.percent}%`, LANDING_RESULT_LABELS[r.status]]),
+    ['F.I.Sh.', 'Lavozim', 'Yosh', 'Telefon', 'Sana', 'Topshirilgan vaqt', 'Ball', 'Maksimal ball', 'Foiz / indeks', 'Holati / tavsiya',
+      'Mas’uliyat', 'Stressga chidamlilik', 'Muloqot', 'Hamdardlik', 'Ishonchlilik', 'Eng mos lavozim'],
+    filtered.value.map((r) => {
+      const s = r.scores || {}
+      const pct = (v) => (v || v === 0 ? `${v}%` : '')
+      return [
+        r.fullName, r.position, r.age, r.phone, r.date, formatDateTime(r.submittedAt), r.points, r.maxPoints, `${r.percent}%`,
+        LANDING_RESULT_LABELS[r.status] || r.status, pct(s.masuliyat), pct(s.stress), pct(s.muloqot), pct(s.hamdardlik),
+        pct(r.reliability), r.bestPosition ? `${r.bestPosition.name} (${r.bestPosition.percent}%)` : '',
+      ]
+    }),
   )
 }
 
@@ -97,8 +117,8 @@ async function confirmDelete() {
     <div class="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-md shadow-primary-600/25"><Link2 class="h-5 w-5" /></span>
       <div class="min-w-0 flex-1">
-        <p class="text-sm font-semibold text-ink">Sotuv lavozimi uchun test havolasi</p>
-        <p class="text-[13px] text-muted">Nomzodlarga yuboring — login talab qilinmaydi: <span class="break-all font-medium text-primary-700">{{ publicUrl }}</span></p>
+        <p class="text-sm font-semibold text-ink">Yangi xodimlar testi havolasi — 40 ta savol, 4 bosqich</p>
+        <p class="text-[13px] text-muted">Yangi kelgan xodim yoki nomzodga yuboring — login talab qilinmaydi: <span class="break-all font-medium text-primary-700">{{ publicUrl }}</span></p>
       </div>
       <div class="flex flex-wrap gap-2">
         <Button variant="secondary" size="sm" :icon="Copy" @click="copyLink">Nusxalash</Button>
@@ -133,9 +153,8 @@ async function confirmDelete() {
               <tr>
                 <th class="table-th">F.I.Sh.</th>
                 <th class="table-th">Lavozim</th>
-                <th class="table-th text-center">Yosh</th>
                 <th class="table-th">Topshirgan sana</th>
-                <th class="table-th text-center">Ball</th>
+                <th class="table-th">Ko‘rsatkichlar / ball</th>
                 <th class="table-th">Natija</th>
                 <th class="table-th">Holati</th>
                 <th class="table-th text-right" />
@@ -159,22 +178,35 @@ async function confirmDelete() {
                     <span :class="['text-ink group-hover:text-primary-700', r.viewed ? 'font-medium' : 'font-semibold']">{{ r.fullName }}</span>
                   </div>
                 </td>
-                <td class="table-td text-slate-600">{{ r.position }}</td>
-                <td class="table-td text-center tabular-nums text-slate-600">{{ r.age }}</td>
-                <td class="table-td tabular-nums text-slate-600">{{ formatDateTime(r.submittedAt) }}</td>
-                <td class="table-td text-center tabular-nums text-slate-600"><b class="text-ink">{{ r.points }}</b>/{{ r.maxPoints }}</td>
+                <td class="table-td text-slate-600">
+                  <p>{{ r.position }}</p>
+                  <p class="text-[11px] text-muted">{{ r.age }} yosh</p>
+                </td>
+                <td class="table-td whitespace-nowrap tabular-nums text-slate-600">{{ formatDateTime(r.submittedAt) }}</td>
+                <td class="table-td">
+                  <div v-if="isProfile(r) && r.scores" class="grid w-40 grid-cols-2 gap-x-3 gap-y-1">
+                    <div v-for="(v, id) in r.scores" :key="id" class="flex items-center gap-1" :title="`${scaleTitle(id, r)}: ${v}%`">
+                      <span class="w-11 truncate text-[11px] text-muted">{{ scaleLabel(id, r) }}</span>
+                      <span class="h-1 flex-1 overflow-hidden rounded-full bg-slate-100"><span :class="['block h-full rounded-full', levelBar(v)]" :style="{ width: `${v}%` }" /></span>
+                      <span class="w-6 text-right text-[11px] font-semibold tabular-nums">{{ v }}</span>
+                    </div>
+                  </div>
+                  <span v-else class="tabular-nums text-slate-600"><b class="text-ink">{{ r.points }}</b>/{{ r.maxPoints }} ball</span>
+                </td>
                 <td class="table-td">
                   <div class="flex items-center gap-2">
                     <div class="h-1.5 w-14 overflow-hidden rounded-full bg-slate-100">
-                      <div :class="['h-full rounded-full transition-[width] duration-500', r.status === 'O‘tdi' ? 'bg-emerald-500' : 'bg-red-500']" :style="{ width: `${r.percent}%` }" />
+                      <div :class="['h-full rounded-full transition-[width] duration-500', isProfile(r) ? levelBar(r.percent) : r.status === 'O‘tdi' ? 'bg-emerald-500' : 'bg-red-500']" :style="{ width: `${r.percent}%` }" />
                     </div>
                     <span class="font-semibold tabular-nums">{{ r.percent }}%</span>
                   </div>
+                  <p v-if="typeof r.reliability === 'number'" class="mt-1 text-[11px] text-muted">Ishonchlilik: <b :class="['tabular-nums', relTone(r.reliability)]">{{ r.reliability }}%</b></p>
+                  <p v-if="r.bestPosition" class="max-w-[10rem] truncate text-[11px] text-muted" :title="`Eng mos lavozim: ${r.bestPosition.name} (${r.bestPosition.percent}%)`">{{ r.bestPosition.name }} · {{ r.bestPosition.percent }}%</p>
                 </td>
-                <td class="table-td"><StatusBadge :status="r.status" :label="LANDING_RESULT_LABELS[r.status]" /></td>
+                <td class="table-td"><StatusBadge :status="r.status" :label="LANDING_RESULT_LABELS[r.status] || r.status" /></td>
                 <td class="table-td text-right" @click.stop @keydown.enter.stop>
                   <div class="flex justify-end gap-1.5">
-                    <button class="icon-btn h-8 w-8 border border-line bg-white hover:border-primary-200 hover:text-primary-600" title="Javoblarni ko‘rish" aria-label="Javoblarni ko‘rish" @click="openId = r.id">
+                    <button class="icon-btn h-8 w-8 border border-line bg-white hover:border-primary-200 hover:text-primary-600" :title="isProfile(r) ? 'HR hisobotini ko‘rish' : 'Javoblarni ko‘rish'" :aria-label="isProfile(r) ? 'HR hisobotini ko‘rish' : 'Javoblarni ko‘rish'" @click="openId = r.id">
                       <Eye class="h-4 w-4" />
                     </button>
                     <button class="icon-btn h-8 w-8 border border-line bg-white hover:border-red-200 hover:bg-red-50 hover:text-red-600" title="O‘chirish" :aria-label="`${r.fullName}: o‘chirish`" @click="askDelete(r)">
@@ -197,11 +229,12 @@ async function confirmDelete() {
               <span class="min-w-0 flex-1">
                 <span class="flex items-start justify-between gap-2">
                   <span class="truncate font-medium text-ink">{{ r.fullName }}</span>
-                  <StatusBadge :status="r.status" :label="LANDING_RESULT_LABELS[r.status]" size="sm" />
+                  <StatusBadge :status="r.status" :label="LANDING_RESULT_LABELS[r.status] || r.status" size="sm" />
                 </span>
                 <span class="mt-0.5 block truncate text-[13px] text-slate-600">{{ r.position }} · {{ r.age }} yosh</span>
                 <span class="mt-1 flex flex-wrap gap-x-4 text-xs tabular-nums text-muted">
-                  <span><b class="text-ink">{{ r.percent }}%</b> · {{ r.points }}/{{ r.maxPoints }} ball</span>
+                  <span v-if="isProfile(r)"><b class="text-ink">{{ r.percent }}%</b> indeks · ishonchlilik {{ r.reliability }}%<template v-if="r.bestPosition"> · {{ r.bestPosition.name }}</template></span>
+                  <span v-else><b class="text-ink">{{ r.percent }}%</b> · {{ r.points }}/{{ r.maxPoints }} ball</span>
                   <span>{{ formatDateTime(r.submittedAt) }}</span>
                 </span>
               </span>

@@ -1,8 +1,9 @@
 import { ApiError, USE_MOCK, request } from './client'
 
 /**
- * Nomzodlar testi natijalari (HR uchun). Test sahifasining o‘zi — alohida ilova: landing/ papkasi (/test/sotuv).
- * Savolnoma va baholash kaliti backendda (backend/app/landing_tests/<slug>.json), ball serverda hisoblanadi.
+ * Yangi kelgan xodimlar / nomzodlar testi natijalari (HR uchun). Test sahifasi — alohida ilova: landing/ papkasi (/test/sotuv).
+ * Savolnoma va baholash kaliti backendda (backend/app/landing_tests/<slug>.json), hisoblash serverda.
+ * get(id) — 40 savolli testda (format=profile): report (HR hisoboti) va reportText (nusxalash uchun to‘liq matn).
  * Mock rejimida (VITE_API_URL yo‘q) bu bo‘lim ishlamaydi — backend talab qilinadi.
  */
 function requireBackend() {

@@ -7,12 +7,17 @@ import Avatar from '@/components/ui/Avatar.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
+import ProfileReport from './ProfileReport.vue'
 import { landingResultsApi } from '@/api/landing'
 import { useLandingStore } from '@/stores/landing'
 import { LANDING_RESULT_LABELS } from '@/constants'
 import { formatDate, formatDateTime } from '@/utils/date'
 
-/** Nomzodning landing test natijasi: barcha savollar, variantlar, tanlangan javob va baholash kaliti */
+/**
+ * Landing test natijasi.
+ * - 40 savolli test (format=profile): batafsil HR hisoboti — ProfileReport.
+ * - eski test: barcha savollar, variantlar, tanlangan javob va baholash kaliti.
+ */
 const props = defineProps({
   open: { type: Boolean, default: false },
   resultId: { type: Number, default: null },
@@ -47,6 +52,7 @@ watch(
 )
 
 const passed = computed(() => detail.value?.status === 'O‘tdi')
+const isProfile = computed(() => detail.value?.format === 'profile')
 const items = computed(() => detail.value?.items || [])
 const notBest = computed(() => items.value.filter((i) => i.points < i.maxPoints))
 const shown = computed(() => (filter.value === 'weak' ? notBest.value : items.value))
@@ -97,9 +103,29 @@ const pointTone = (i) => (i.points === i.maxPoints ? 'text-emerald-600' : i.poin
           <div class="info"><dt><Clock class="h-3.5 w-3.5" /> Topshirildi</dt><dd>{{ formatDateTime(detail.submittedAt) }}</dd></div>
           <div class="info"><dt><Phone class="h-3.5 w-3.5" /> Telefon</dt><dd>{{ detail.phone || '—' }}</dd></div>
           <div class="info"><dt><Clock class="h-3.5 w-3.5" /> Sarflangan vaqt</dt><dd>{{ duration }}</dd></div>
+          <div v-if="detail.employeeId" class="info"><dt><User class="h-3.5 w-3.5" /> Xodim kartasi</dt><dd><RouterLink :to="`/employees/${detail.employeeId}`" class="text-primary-700 hover:underline">Xodim #{{ detail.employeeId }}</RouterLink></dd></div>
         </dl>
 
-        <div :class="['flex items-center gap-4 rounded-2xl border p-4', passed ? 'border-emerald-100 bg-emerald-50/60' : 'border-red-100 bg-red-50/60']">
+        <!-- 40 savolli test: umumiy indeks, tavsiya, ishonchlilik, ko‘rsatkichlar -->
+        <div v-if="isProfile" class="rounded-2xl border border-primary-100 bg-primary-50/50 p-4">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-3xl font-bold tabular-nums tracking-tight text-ink">{{ detail.percent }}%</p>
+            <StatusBadge :status="detail.status" :label="LANDING_RESULT_LABELS[detail.status]" />
+          </div>
+          <p class="mt-0.5 text-xs text-muted">Umumiy profil indeksi · {{ detail.total }} ta savol</p>
+          <div class="mt-3 grid grid-cols-2 gap-2 text-center">
+            <div class="rounded-xl bg-white px-2 py-2"><p class="text-[11px] text-muted">Ishonchlilik</p><p class="text-xl font-bold tabular-nums text-ink">{{ detail.reliability }}%</p></div>
+            <div class="rounded-xl bg-white px-2 py-2"><p class="text-[11px] text-muted">Eng mos lavozim</p><p class="truncate text-sm font-semibold text-ink" :title="detail.bestPosition?.name">{{ detail.bestPosition?.name || '—' }}</p><p class="text-xs tabular-nums text-primary-700">{{ detail.bestPosition?.percent ?? '—' }}%</p></div>
+          </div>
+          <ul class="mt-3 space-y-2">
+            <li v-for="s in detail.report?.scales || []" :key="s.id">
+              <div class="flex justify-between text-xs"><span class="text-slate-600">{{ s.title }}</span><b class="tabular-nums text-ink">{{ s.percent }}%</b></div>
+              <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-white"><div :class="['h-full rounded-full', s.percent >= 75 ? 'bg-emerald-500' : s.percent >= 50 ? 'bg-amber-500' : 'bg-red-500']" :style="{ width: `${s.percent}%` }" /></div>
+            </li>
+          </ul>
+        </div>
+
+        <div v-else :class="['flex items-center gap-4 rounded-2xl border p-4', passed ? 'border-emerald-100 bg-emerald-50/60' : 'border-red-100 bg-red-50/60']">
           <svg viewBox="0 0 80 80" class="h-20 w-20 shrink-0 -rotate-90" aria-hidden="true">
             <circle cx="40" cy="40" :r="R" fill="none" stroke="currentColor" stroke-width="8" class="text-white" />
             <circle cx="40" cy="40" :r="R" fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round" :stroke-dasharray="dash" :class="['transition-all duration-700', passed ? 'text-emerald-500' : 'text-red-500']" />
@@ -112,6 +138,9 @@ const pointTone = (i) => (i.points === i.maxPoints ? 'text-emerald-600' : i.poin
         </div>
       </div>
 
+      <ProfileReport v-if="isProfile" :key="detail.id" :detail="detail" class="mt-6" />
+
+      <template v-else>
       <!-- Bo‘limlar -->
       <div class="mt-4 grid gap-3 sm:grid-cols-2">
         <div v-for="s in detail.sections" :key="s.id" class="rounded-xl border border-line px-4 py-3">
@@ -189,6 +218,7 @@ const pointTone = (i) => (i.points === i.maxPoints ? 'text-emerald-600' : i.poin
         </li>
       </ol>
       <p v-if="!shown.length" class="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">Barcha javoblar kalit bo‘yicha eng yuqori ballni oldi.</p>
+      </template>
     </template>
 
     <template #footer>

@@ -39,7 +39,17 @@ export const TEST_RESULT_STATUSES = ['Kutilmoqda', 'O‘tdi', 'O‘tmadi']
 export const DEFAULT_PASS_PERCENT = 80
 export const RESULT_LABELS = { 'O‘tdi': 'Testdan o‘tdi', 'O‘tmadi': 'Testdan o‘tmadi', Kutilmoqda: 'Kutilmoqda' }
 // Nomzodlar testi (landing, /test/sotuv): 80% va yuqori — o‘tdi, past — yiqildi
-export const LANDING_RESULT_LABELS = { 'O‘tdi': 'Testdan o‘tdi', Yiqildi: 'Testdan yiqildi' }
+/** Landing natijasi holati: eski test — O‘tdi/Yiqildi; 40 savolli test — HR tavsiyasi (backend/app/profile_test.py) */
+export const LANDING_RESULT_LABELS = {
+  'O‘tdi': 'Testdan o‘tdi',
+  Yiqildi: 'Testdan yiqildi',
+  'Tavsiya etiladi': 'Tavsiya etiladi',
+  'Suhbatda aniqlashtirish': 'Suhbatda aniqlashtirish',
+  'Qo‘shimcha baholash kerak': 'Qo‘shimcha baholash kerak',
+  'Ishonchsiz natija': 'Ishonchsiz natija',
+}
+/** Ijobiy natija: eski testdan o‘tgan yoki 40 savolli testda "Tavsiya etiladi" */
+export const isLandingPositive = (r) => r?.status === 'O‘tdi' || r?.status === 'Tavsiya etiladi'
 export const LANDING_TEST_SLUG = 'sotuv'
 
 // ---------- Foydalanuvchilar ----------

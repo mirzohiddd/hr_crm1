@@ -28,6 +28,11 @@ const TONE_BY_STATUS = {
   'O‘tmadi': 'red',
   Yiqildi: 'red',
   'Boshlanmagan': 'slate',
+  // Yangi xodimlar testi (HR tavsiyasi)
+  'Tavsiya etiladi': 'green',
+  'Suhbatda aniqlashtirish': 'amber',
+  'Qo‘shimcha baholash kerak': 'orange',
+  'Ishonchsiz natija': 'red',
   // Foydalanuvchilar
   Bloklangan: 'red',
 }

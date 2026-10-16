@@ -50,7 +50,7 @@ const tab = ref(TAB_VALUES.includes(route.query.tab) ? route.query.tab : 'result
 const tabs = computed(() => [
   { value: 'results', label: 'Xodimlar natijalari', count: store.results.length },
   { value: 'final', label: 'Yakuniy bilim testi', count: finalTest.stats.total },
-  { value: 'landing', label: 'Nomzodlar testi', count: landing.items.length },
+  { value: 'landing', label: 'Yangi xodimlar testi', count: landing.items.length },
   { value: 'bank', label: 'Testlar bazasi', count: store.tests.length },
 ])
 watch(tab, (t) => router.replace({ query: t === 'results' ? {} : { tab: t } }))
@@ -240,10 +240,10 @@ async function confirmDelete() {
       <StatCard label="O‘rtacha natija" :value="`${finalTest.stats.avg}%`" :icon="Percent" :loading="!finalTest.loaded && finalTest.loading" hint="Barcha topshirishlar bo‘yicha" />
     </div>
     <div v-else-if="tab === 'landing'" class="stagger grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <StatCard label="Test topshirgan nomzodlar" :value="landing.stats.total" :icon="UserRoundCheck" :loading="!landing.loaded && landing.loading" :hint="landing.stats.unseen ? `${landing.stats.unseen} ta yangi natija` : 'Barchasi ko‘rib chiqilgan'" />
-      <StatCard label="Testdan o‘tdi" :value="landing.stats.passed" :icon="CheckCircle2" tone="green" :loading="!landing.loaded && landing.loading" hint="80% va undan yuqori" />
-      <StatCard label="Testdan yiqildi" :value="landing.stats.failed" :icon="XCircle" tone="red" :loading="!landing.loaded && landing.loading" hint="80% dan past" />
-      <StatCard label="O‘rtacha natija" :value="`${landing.stats.avg}%`" :icon="Percent" :loading="!landing.loaded && landing.loading" hint="Barcha nomzodlar bo‘yicha" />
+      <StatCard label="Test topshirganlar" :value="landing.stats.total" :icon="UserRoundCheck" :loading="!landing.loaded && landing.loading" :hint="landing.stats.unseen ? `${landing.stats.unseen} ta yangi natija` : 'Barchasi ko‘rib chiqilgan'" />
+      <StatCard label="Tavsiya etiladi" :value="landing.stats.passed" :icon="CheckCircle2" tone="green" :loading="!landing.loaded && landing.loading" hint="Profil mos va ishonchli (eski testda — o‘tdi)" />
+      <StatCard label="E’tibor talab qiladi" :value="landing.stats.failed" :icon="XCircle" tone="red" :loading="!landing.loaded && landing.loading" :hint="landing.stats.unreliable ? `${landing.stats.unreliable} ta ishonchsiz natija` : 'Suhbatda aniqlashtirish'" />
+      <StatCard label="O‘rtacha profil indeksi" :value="`${landing.stats.avg}%`" :icon="Percent" :loading="!landing.loaded && landing.loading" :hint="landing.stats.avgReliability !== null ? `O‘rtacha ishonchlilik: ${landing.stats.avgReliability}%` : 'Barcha topshirishlar bo‘yicha'" />
     </div>
     <div v-else class="stagger grid grid-cols-2 gap-4 lg:grid-cols-4">
       <StatCard label="Topshirish kutilmoqda" :value="store.stats.pending" :icon="Clock" tone="amber" :loading="firstLoad" hint="Darsni tugatgan xodimlar" />
@@ -258,7 +258,7 @@ async function confirmDelete() {
 
     <!-- Yakuniy bilim testi (landing-2: /test/yakuniy) -->
     <FinalResults v-if="tab === 'final'" />
-    <!-- Nomzodlar testi (landing: /test/sotuv) -->
+    <!-- Yangi xodimlar testi (landing: /test/sotuv) — 40 savol, batafsil HR hisoboti bilan -->
     <LandingResults v-else-if="tab === 'landing'" />
 
     <ErrorState v-else-if="store.error" class="card mt-4" :message="store.error" @retry="store.fetchAll({ force: true })" />

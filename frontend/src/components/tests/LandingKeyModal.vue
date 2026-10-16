@@ -41,7 +41,20 @@ const sectionItems = (id) => key.value.questions.filter((q) => q.section === id)
     <LoadingState v-if="loading" :rows="5" />
     <p v-else-if="error" class="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"><AlertCircle class="mt-0.5 h-4 w-4 shrink-0" /> {{ error }}</p>
     <template v-else-if="key">
-      <div class="rounded-2xl border border-primary-100 bg-primary-50/60 p-4 text-sm leading-relaxed text-slate-700">
+      <!-- 40 savolli test (format=profile) -->
+      <div v-if="key.format === 'profile'" class="rounded-2xl border border-primary-100 bg-primary-50/60 p-4 text-sm leading-relaxed text-slate-700">
+        <p class="font-semibold text-ink">Natija qanday hisoblanadi</p>
+        <ul class="mt-2 list-disc space-y-1 pl-5">
+          <li><b>{{ key.questions.length }} ta fikr</b>, {{ Math.ceil(key.questions.length / key.stageSize) }} bosqich × {{ key.stageSize }} ta. Javob: «{{ key.options[0] }}» yoki «{{ key.options[1] }}».</li>
+          <li><b>To‘g‘ri savol:</b> «{{ key.options[1] }}» = 1 ball. <b>Teskari savol:</b> «{{ key.options[0] }}» = 1 ball. Shkala foizi = ball / savollar soni × 100 (75%+ yuqori, 50–74% o‘rtacha, 50% dan past — past).</li>
+          <li><b>Samimiylik savollari</b> asosiy ko‘rsatkichlarga qo‘shilmaydi. Ishonchlilik 100 dan boshlanadi: har bir nosamimiy javob −{{ key.rules.sincerityPenalty }}, har bir ziddiyatli juftlik −{{ key.rules.pairPenalty }}, hamma savolga bir xil javob −{{ key.rules.acquiescencePenalty }}, juda tez topshirish −{{ key.rules.fastPenalty }}…{{ key.rules.veryFastPenalty }}.</li>
+          <li><b>Lavozimga moslik</b> = shkala foizlarining lavozim og‘irliklari bo‘yicha o‘rtachasi. <b>“Tavsiya etiladi”</b>: indeks ≥ 70%, har bir shkala ≥ 50% va ishonchlilik ≥ {{ key.rules.recommendMinReliability }}%.</li>
+          <li>Bu test klinik tashxis emas — HR suhbati uchun yo‘naltiruvchi ma’lumot.</li>
+        </ul>
+        <p class="mt-2 text-xs text-muted">Kalitni o‘zgartirish: <code class="rounded bg-white px-1 py-0.5">backend/app/landing_tests/{{ key.slug }}.json</code>. Avval topshirilgan natijalar o‘zgarmaydi.</p>
+      </div>
+
+      <div v-else class="rounded-2xl border border-primary-100 bg-primary-50/60 p-4 text-sm leading-relaxed text-slate-700">
         <p class="font-semibold text-ink">Natija qanday hisoblanadi</p>
         <ul class="mt-2 list-disc space-y-1 pl-5">
           <li><b>1–14-savollar</b> (shaxsiy sifatlar, obyektiv to‘g‘ri javob yo‘q) — 1–5 ballik shkala. <b>To‘g‘ri savol:</b> tanlangan raqam = ball. <b>Teskari savol</b> (salbiy xulq haqida): ball = 6 − tanlangan raqam. Har savol maksimal 5 ball.</li>
@@ -59,7 +72,7 @@ const sectionItems = (id) => key.value.questions.filter((q) => q.section === id)
               <tr>
                 <th class="table-th w-10">№</th>
                 <th class="table-th">Savol</th>
-                <th v-if="sectionItems(s.id)[0]?.type === 'scale'" class="table-th">Turi</th>
+                <th v-if="['scale', 'agree'].includes(sectionItems(s.id)[0]?.type)" class="table-th">Turi</th>
                 <th class="table-th">Ball (javob → ball)</th>
               </tr>
             </thead>
@@ -70,7 +83,7 @@ const sectionItems = (id) => key.value.questions.filter((q) => q.section === id)
                   <p class="text-ink">{{ q.text }}</p>
                   <p v-if="q.keyNote" class="mt-0.5 text-xs text-muted">{{ q.keyNote }}</p>
                 </td>
-                <td v-if="q.type === 'scale'" class="table-td">
+                <td v-if="q.type === 'scale' || q.type === 'agree'" class="table-td">
                   <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', q.key === 'reverse' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700']">
                     {{ q.key === 'reverse' ? 'Teskari' : 'To‘g‘ri' }}
                   </span>
