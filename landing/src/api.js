@@ -1,7 +1,8 @@
 /**
  * Backend bilan aloqa (HR CRM backendi, login talab qilinmaydigan ochiq endpointlar):
- *   GET  /public/tests/{slug}          nomzodlar testi savollari (baholash kalitisiz)
- *   POST /public/tests/{slug}/submit   javoblar — ball serverda hisoblanadi
+ *   GET  /public/tests/{slug}          savollar (baholash kalitisiz); profil testida — bosqichlar (stages) va variantlar
+ *   POST /public/tests/{slug}/submit   javoblar — hisoblash serverda
+ *                                      (profil testi: answers = { savolId: 0 = «Qo‘shilmayman» | 1 = «Qo‘shilaman» })
  */
 const BASE_URL = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/, '')
 

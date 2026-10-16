@@ -1,22 +1,29 @@
 <script setup>
 /**
- * Nomzodlar uchun ochiq test (landing ilovasi): /test/sotuv
+ * Yangi kelgan xodimlar / nomzodlar uchun ochiq test (landing ilovasi): /test/sotuv
  * Login talab qilinmaydi. Savollar backenddan olinadi (backend/app/landing_tests/<slug>.json),
- * ball serverda hisoblanadi, natija HR CRM → Testlar → "Nomzodlar testi" bo‘limiga tushadi.
+ * hisoblash serverda, natija HR CRM → Testlar → "Nomzodlar testi" bo‘limiga tushadi.
+ *
+ * Joriy test (format=profile): 40 ta fikr 4 bosqichda (har birida 10 ta), javob — «Qo‘shilmayman» / «Qo‘shilaman».
+ *   "Oldinga" — bosqichdagi barcha savollarga javob berilgach; "Orqaga" — oldingi bosqichga (javoblar saqlanadi,
+ *   1-bosqichda — ma’lumotlarga); 4-bosqichda "Testni yakunlash". HR uchun batafsil hisobot — backendda.
+ * Eski formatdagi savolnomalar (1–5 shkala, A/B/C/D) avvalgidek bitta-bitta savol bilan ishlaydi.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
-  AlertCircle, ArrowLeft, ArrowRight, BadgeCheck, Briefcase, CalendarDays, CheckCircle2, Clock, Keyboard,
-  ListChecks, Loader2, Pencil, Phone, RotateCcw, Send, ShieldCheck, Sparkles, Target, UserRound,
+  AlertCircle, ArrowLeft, ArrowRight, BadgeCheck, Briefcase, CalendarDays, Check, CheckCircle2, Clock, Flag, Keyboard,
+  Layers, ListChecks, Loader2, Pencil, Phone, RotateCcw, Send, ShieldCheck, Sparkles, Target, UserRound,
 } from 'lucide-vue-next'
 import BrandLogo from '@/components/BrandLogo.vue'
 import ScaleAnswer from '@/components/ScaleAnswer.vue'
 import ChoiceAnswer from '@/components/ChoiceAnswer.vue'
+import AgreeAnswer from '@/components/AgreeAnswer.vue'
 import { testApi } from '@/api'
 import { formatDate, onlyDigits, slugFromPath, todayISO } from '@/utils'
 
 const slug = computed(() => slugFromPath())
-const DRAFT_KEY = computed(() => `hr-crm:landing:${slug.value}`)
+// 40 savolli test qoralamasi eski (20 savolli) test qoralamasi bilan aralashmasin
+const DRAFT_KEY = computed(() => `hr-crm:landing:${slug.value}${test.value?.format === 'profile' ? ':profile' : ''}`)
 const LETTERS = 'ABCDEFGH'
 
 // ---------- Savolnoma ----------
@@ -32,6 +39,8 @@ const sections = computed(() =>
   }),
 )
 const sectionOf = (q) => sections.value.find((s) => s.id === q?.section)
+const isProfile = computed(() => test.value?.format === 'profile')
+const agreeOptions = computed(() => test.value?.options || ['Qo‘shilmayman', 'Qo‘shilaman'])
 
 // ---------- Holat ----------
 const phase = ref('intro') // intro | quiz | review | done
@@ -65,12 +74,88 @@ const allAnswered = computed(() => total.value > 0 && firstUnanswered.value === 
 const reachable = (i) => allAnswered.value || i <= firstUnanswered.value
 const firstName = computed(() => form.fullName.trim().split(/\s+/)[1] || form.fullName.trim().split(/\s+/)[0] || '')
 
+// ---------- Profil testi: 4 bosqich × 10 savol ----------
+const stage = ref(0)
+const highlight = ref(false) // "Oldinga" bosilganda javobsiz savollarni ajratib ko‘rsatish
+const byId = computed(() => new Map(questions.value.map((q) => [String(q.id), q])))
+const stages = computed(() => {
+  const list = test.value?.stages
+  if (list?.length) return list.map((s) => s.questionIds.map((id) => byId.value.get(String(id))).filter(Boolean))
+  const size = test.value?.stageSize || 10
+  const out = []
+  for (let i = 0; i < questions.value.length; i += size) out.push(questions.value.slice(i, i + size))
+  return out
+})
+const stageCount = computed(() => stages.value.length)
+const stageQuestions = computed(() => stages.value[stage.value] || [])
+const stageOffset = computed(() => stages.value.slice(0, stage.value).reduce((n, s) => n + s.length, 0))
+const isLastStage = computed(() => stage.value === stageCount.value - 1)
+const stageDone = (i) => (stages.value[i] || []).every(isAnswered)
+const stageAnswered = (i) => (stages.value[i] || []).filter(isAnswered).length
+const firstOpenStage = computed(() => {
+  const i = stages.value.findIndex((_, k) => !stageDone(k))
+  return i === -1 ? Math.max(0, stageCount.value - 1) : i
+})
+const stageReachable = (i) => i <= firstOpenStage.value
+
+function scrollToQuestion(q) {
+  nextTick(() => document.getElementById(`q-${q.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+}
+function goStage(i) {
+  if (i < 0 || i >= stageCount.value || !stageReachable(i) || submitting.value) return
+  submitError.value = ''
+  highlight.value = false
+  direction.value = i >= stage.value ? 1 : -1
+  stage.value = i
+  scrollTop()
+}
+/** Bosqichdagi birinchi javobsiz savolni ko‘rsatadi; hammasiga javob berilgan bo‘lsa — false */
+function showMissing() {
+  const missing = stageQuestions.value.filter((q) => !isAnswered(q))
+  if (!missing.length) return false
+  highlight.value = true
+  submitError.value = `Bu bosqichda ${missing.length} ta savol javobsiz qoldi. Davom etish uchun barcha savollarga javob bering.`
+  scrollToQuestion(missing[0])
+  return true
+}
+function nextStage() {
+  if (showMissing()) return
+  goStage(stage.value + 1)
+}
+function prevStage() {
+  if (stage.value === 0) {
+    phase.value = 'intro' // ma'lumotlarga qaytish — javoblar saqlanib qoladi
+    scrollTop()
+    return
+  }
+  goStage(stage.value - 1)
+}
+function selectAgree(q, value) {
+  answers[q.id] = value
+  if (stageDone(stage.value)) {
+    submitError.value = ''
+    highlight.value = false
+  }
+  const list = stageQuestions.value
+  const nextQ = list.slice(list.indexOf(q) + 1).find((x) => !isAnswered(x))
+  if (nextQ) scrollToQuestion(nextQ)
+}
+async function finishProfile() {
+  if (showMissing()) return
+  if (!allAnswered.value) {
+    goStage(firstOpenStage.value)
+    nextTick(showMissing)
+    return
+  }
+  await submit()
+}
+
 // ---------- Qoralama (sahifa yangilansa javoblar yo‘qolmaydi) ----------
 function saveDraft() {
   try {
     localStorage.setItem(
       DRAFT_KEY.value,
-      JSON.stringify({ phase: phase.value, form, answers, current: current.value, startedAt: startedAt.value, clientId: clientId.value, done: done.value }),
+      JSON.stringify({ phase: phase.value, form, answers, current: current.value, stage: stage.value, startedAt: startedAt.value, clientId: clientId.value, done: done.value }),
     )
   } catch {
     /* saqlash imkoni yo‘q — muhim emas */
@@ -81,7 +166,10 @@ function loadDraft() {
     const d = JSON.parse(localStorage.getItem(DRAFT_KEY.value) || 'null')
     if (!d) return
     Object.assign(form, d.form || {})
-    Object.entries(d.answers || {}).forEach(([k, v]) => (answers[k] = v))
+    Object.entries(d.answers || {}).forEach(([k, v]) => {
+      // Profil testida faqat mavjud savollar va 0/1 javoblar tiklanadi
+      if (!isProfile.value || (byId.value.has(String(k)) && (v === 0 || v === 1))) answers[k] = v
+    })
     startedAt.value = d.startedAt || null
     clientId.value = d.clientId || clientId.value
     done.value = d.done || null
@@ -89,6 +177,11 @@ function loadDraft() {
     current.value = Math.min(Number(d.current) || 0, max)
     phase.value = ['intro', 'quiz', 'review', 'done'].includes(d.phase) ? d.phase : 'intro'
     if (phase.value === 'done' && !done.value) phase.value = 'intro'
+    if (isProfile.value) {
+      stage.value = Math.min(Math.max(0, Number(d.stage) || 0), Math.max(0, stageCount.value - 1))
+      if (!stageReachable(stage.value)) stage.value = firstOpenStage.value
+      if (phase.value === 'review') phase.value = 'quiz'
+    }
   } catch {
     /* buzilgan qoralama */
   }
@@ -100,7 +193,7 @@ function clearDraft() {
     /* */
   }
 }
-watch([phase, current, () => ({ ...form }), () => ({ ...answers })], saveDraft, { deep: true })
+watch([phase, current, stage, () => ({ ...form }), () => ({ ...answers })], saveDraft, { deep: true })
 
 onMounted(async () => {
   try {
@@ -142,6 +235,11 @@ async function start() {
   if (!startedAt.value) startedAt.value = Date.now()
   phase.value = 'quiz'
   current.value = allAnswered.value ? 0 : Math.max(0, firstUnanswered.value)
+  if (isProfile.value) {
+    stage.value = firstOpenStage.value
+    highlight.value = false
+    submitError.value = ''
+  }
   scrollTop()
 }
 function clearError(field) {
@@ -194,7 +292,7 @@ watch(current, (i) =>
 )
 
 function onKey(e) {
-  if (phase.value !== 'quiz' || !question.value) return
+  if (phase.value !== 'quiz' || !question.value || isProfile.value) return
   if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select')) return
   if (e.altKey || e.ctrlKey || e.metaKey) return
   const q = question.value
@@ -278,6 +376,8 @@ function restart() {
   Object.assign(form, { fullName: '', age: '', date: todayISO(), position: test.value?.positions?.length === 1 ? test.value.positions[0] : '', phone: '' })
   errors.value = {}
   current.value = 0
+  stage.value = 0
+  highlight.value = false
   startedAt.value = null
   clientId.value = newId()
   done.value = null
@@ -295,11 +395,19 @@ function scrollTop() {
 }
 
 const formatSubmitted = (v) => (v ? `${formatDate(v.slice(0, 10))}, ${v.slice(11, 16)}` : '')
-const steps = [
-  { icon: UserRound, title: 'Ma’lumotlaringiz', text: 'F.I.Sh., yosh va lavozim' },
-  { icon: ListChecks, title: '20 ta savol', text: 'Shaxsiy sifatlar va savdo vaziyatlari' },
-  { icon: BadgeCheck, title: 'HR javobi', text: 'Natijani HR ko‘rib chiqib bog‘lanadi' },
-]
+const steps = computed(() =>
+  isProfile.value
+    ? [
+        { icon: UserRound, title: 'Ma’lumotlaringiz', text: 'F.I.Sh., yosh va lavozim' },
+        { icon: Layers, title: `${total.value} ta fikr · ${stageCount.value} bosqich`, text: '«Qo‘shilmayman» yoki «Qo‘shilaman» — samimiy javob bering' },
+        { icon: BadgeCheck, title: 'HR suhbati', text: 'Natijani HR ko‘rib chiqib siz bilan bog‘lanadi' },
+      ]
+    : [
+        { icon: UserRound, title: 'Ma’lumotlaringiz', text: 'F.I.Sh., yosh va lavozim' },
+        { icon: ListChecks, title: `${total.value} ta savol`, text: 'Shaxsiy sifatlar va savdo vaziyatlari' },
+        { icon: BadgeCheck, title: 'HR javobi', text: 'Natijani HR ko‘rib chiqib bog‘lanadi' },
+      ],
+)
 </script>
 
 <template>
@@ -350,13 +458,20 @@ const steps = [
           <div class="reveal">
             <span class="inline-flex items-center gap-2 rounded-full border border-primary-100 bg-white/80 px-3 py-1 text-xs font-semibold text-primary-700 shadow-sm">
               <span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-400 opacity-60" /><span class="relative inline-flex h-2 w-2 rounded-full bg-primary-600" /></span>
-              Ochiq vakansiya · Sotuv bo‘limi
+              {{ isProfile ? 'Yangi xodimlar · HR+' : 'Ochiq vakansiya · Sotuv bo‘limi' }}
             </span>
-            <h1 class="mt-5 text-[34px] font-bold leading-[1.08] tracking-tight sm:text-5xl">
+            <h1 v-if="isProfile" class="mt-5 text-[34px] font-bold leading-[1.08] tracking-tight sm:text-5xl">
+              O‘zingiz haqingizda<br class="hidden sm:block" />
+              <span class="text-gradient">samimiy</span> javob bering
+            </h1>
+            <h1 v-else class="mt-5 text-[34px] font-bold leading-[1.08] tracking-tight sm:text-5xl">
               Savdoda kuchli<br class="hidden sm:block" />
               tomonlaringizni <span class="text-gradient">ko‘rsating</span>
             </h1>
-            <p class="mt-5 max-w-xl text-[15px] leading-relaxed text-slate-600 sm:text-base">
+            <p v-if="isProfile" class="mt-5 max-w-xl text-[15px] leading-relaxed text-slate-600 sm:text-base">
+              {{ test.description }} Javoblaringiz HR bo‘limiga yuboriladi.
+            </p>
+            <p v-else class="mt-5 max-w-xl text-[15px] leading-relaxed text-slate-600 sm:text-base">
               {{ test.subtitle }}. Javoblaringiz HR bo‘limiga yuboriladi — mos nomzodlar bilan suhbat uchun bog‘lanamiz.
             </p>
 
@@ -367,11 +482,11 @@ const steps = [
               </div>
               <div class="metric">
                 <dt>Vaqt</dt>
-                <dd>≈10<small> daq</small></dd>
+                <dd>≈{{ isProfile ? 8 : 10 }}<small> daq</small></dd>
               </div>
               <div class="metric">
-                <dt>Bo‘lim</dt>
-                <dd>{{ sections.length }}</dd>
+                <dt>{{ isProfile ? 'Bosqich' : 'Bo‘lim' }}</dt>
+                <dd>{{ isProfile ? stageCount : sections.length }}</dd>
               </div>
             </dl>
 
@@ -466,7 +581,109 @@ const steps = [
           </form>
         </section>
 
-        <!-- ================= 2. Savollar ================= -->
+        <!-- ================= 2a. Savollar: 4 bosqich × 10 ta (profil testi) ================= -->
+        <section v-else-if="phase === 'quiz' && isProfile" key="stages" class="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
+          <aside class="hidden lg:block">
+            <div class="sticky top-24 space-y-4">
+              <div class="side-card">
+                <div class="flex items-center gap-3">
+                  <span class="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-primary-600 to-primary-500 text-sm font-bold text-white shadow-md shadow-primary-600/30">
+                    {{ form.fullName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase() }}
+                  </span>
+                  <div class="min-w-0">
+                    <p class="truncate text-sm font-semibold">{{ form.fullName }}</p>
+                    <p class="truncate text-xs text-muted">{{ form.position }}</p>
+                  </div>
+                </div>
+                <div class="mt-4 space-y-3">
+                  <div v-for="(list, i) in stages" :key="i">
+                    <div class="flex items-center justify-between text-xs">
+                      <span :class="['font-medium', i === stage ? 'text-primary-700' : 'text-slate-600']">{{ i + 1 }}-bosqich · {{ stages.slice(0, i).reduce((n, s) => n + s.length, 0) + 1 }}–{{ stages.slice(0, i + 1).reduce((n, s) => n + s.length, 0) }}</span>
+                      <span class="tabular-nums text-muted">{{ stageAnswered(i) }}/{{ list.length }}</span>
+                    </div>
+                    <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div class="progress-fill h-full rounded-full" :style="{ width: `${(stageAnswered(i) / list.length) * 100}%` }" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="flex items-start gap-2 px-1 text-xs leading-relaxed text-muted">
+                <Sparkles class="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                To‘g‘ri yoki noto‘g‘ri javob yo‘q — birinchi xayolingizga kelgan, samimiy javobni tanlang.
+              </p>
+            </div>
+          </aside>
+
+          <div class="min-w-0">
+            <nav class="grid grid-cols-4 gap-2" aria-label="Test bosqichlari">
+              <button
+                v-for="(list, i) in stages"
+                :key="i"
+                type="button"
+                :disabled="!stageReachable(i) || submitting"
+                :aria-current="i === stage ? 'step' : undefined"
+                :aria-label="`${i + 1}-bosqich: ${stageAnswered(i)}/${list.length} ta javob`"
+                :class="['stage-tab', stageDone(i) && 'is-done', i === stage && 'is-current']"
+                @click="goStage(i)"
+              >
+                <span class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide sm:text-xs">
+                  <span class="stage-dot"><Check v-if="stageDone(i) && i !== stage" class="h-3 w-3" stroke-width="3.5" /><template v-else>{{ i + 1 }}</template></span>
+                  <span class="hidden sm:inline">{{ i + 1 }}-bosqich</span>
+                </span>
+                <span class="mt-1 block text-[11px] tabular-nums opacity-80">{{ stageAnswered(i) }}/{{ list.length }}</span>
+              </button>
+            </nav>
+
+            <div class="question-card mt-4">
+              <div class="flex flex-wrap items-end justify-between gap-2 border-b border-line pb-4">
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-wider text-primary-600">{{ stage + 1 }}-bosqich / {{ stageCount }}</p>
+                  <h2 class="mt-1 text-xl font-semibold tracking-tight">{{ stageOffset + 1 }}–{{ stageOffset + stageQuestions.length }}-savollar</h2>
+                </div>
+                <p class="text-xs text-muted">Har bir fikrga: «{{ agreeOptions[0] }}» yoki «{{ agreeOptions[1] }}»</p>
+              </div>
+
+              <Transition :name="direction > 0 ? 'q-next' : 'q-prev'" mode="out-in">
+                <ol :key="stage" class="divide-y divide-line">
+                  <li v-for="(q, k) in stageQuestions" :id="`q-${q.id}`" :key="q.id" :class="['q-row scroll-mt-28', highlight && !isAnswered(q) && 'is-missing']">
+                    <div class="flex items-start gap-3">
+                      <span :class="['q-badge', isAnswered(q) && 'is-done']" aria-hidden="true">{{ stageOffset + k + 1 }}</span>
+                      <p class="min-w-0 flex-1 pt-1 text-[15px] font-medium leading-snug text-ink sm:text-base">{{ q.text }}</p>
+                    </div>
+                    <div class="mt-3 sm:pl-11">
+                      <AgreeAnswer
+                        :model-value="answers[q.id] ?? null"
+                        :options="q.options || agreeOptions"
+                        :name="`${stageOffset + k + 1}-savol: ${q.text}`"
+                        :invalid="highlight && !isAnswered(q)"
+                        @update:model-value="selectAgree(q, $event)"
+                      />
+                    </div>
+                  </li>
+                </ol>
+              </Transition>
+
+              <p v-if="submitError" class="mt-4 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+                <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" /> {{ submitError }}
+              </p>
+
+              <div class="mt-6 flex items-center justify-between gap-3 border-t border-line pt-5">
+                <button type="button" class="btn-ghost" :disabled="submitting" @click="prevStage">
+                  <ArrowLeft class="h-4 w-4" /> {{ stage === 0 ? 'Ma’lumotlar' : 'Orqaga' }}
+                </button>
+                <span class="hidden text-xs tabular-nums text-muted sm:block">{{ stageAnswered(stage) }}/{{ stageQuestions.length }} ta javob · {{ progress }}%</span>
+                <button v-if="isLastStage" type="button" class="btn-primary btn-finish" :disabled="submitting" @click="finishProfile">
+                  <Loader2 v-if="submitting" class="h-4 w-4 animate-spin" />
+                  <Flag v-else class="h-4 w-4" />
+                  {{ submitting ? 'Yuborilmoqda...' : 'Testni yakunlash' }}
+                </button>
+                <button v-else type="button" class="btn-primary" @click="nextStage">Oldinga <ArrowRight class="h-4 w-4" /></button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= 2. Savollar (eski format: bitta-bitta) ================= -->
         <section v-else-if="phase === 'quiz'" key="quiz" class="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8">
           <!-- Chap panel (kompyuter) -->
           <aside class="hidden lg:block">
@@ -792,6 +1009,37 @@ const steps = [
 }
 .map-dot.is-current {
   @apply border-transparent bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-md shadow-primary-600/30;
+}
+
+/* ---------- Bosqichlar (profil testi) ---------- */
+.stage-tab {
+  @apply rounded-xl border border-line bg-white px-2 py-2 text-left text-slate-500 transition-all duration-150 sm:px-3;
+  @apply hover:-translate-y-0.5 hover:border-primary-300 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0;
+}
+.stage-tab.is-done {
+  @apply border-emerald-100 bg-emerald-50/70 text-emerald-700;
+}
+.stage-tab.is-current {
+  @apply border-transparent bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-md shadow-primary-600/30;
+}
+.stage-dot {
+  @apply grid h-5 w-5 place-items-center rounded-full text-[11px] font-bold tabular-nums;
+  border: 1.5px solid currentColor;
+}
+.q-row {
+  @apply -mx-2 rounded-xl px-2 py-4 transition-colors duration-200 sm:-mx-3 sm:px-3;
+}
+.q-row.is-missing {
+  @apply bg-red-50/60;
+}
+.q-badge {
+  @apply grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-xs font-bold tabular-nums text-slate-500 transition-colors;
+}
+.q-badge.is-done {
+  @apply bg-primary-50 text-primary-700;
+}
+.btn-finish {
+  @apply from-emerald-600 to-emerald-500 shadow-emerald-600/25 hover:shadow-emerald-600/30;
 }
 
 /* ---------- Yakun ---------- */
