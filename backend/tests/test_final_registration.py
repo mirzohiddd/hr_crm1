@@ -210,7 +210,7 @@ def test_landing1_still_works(client):
     answers = {str(i["id"]): 1 for i in q["questions"]}  # 40 savolli test: 1 = «Qo‘shilaman»
     r = client.post(f"{API}/public/tests/sotuv/submit", json={
         "fullName": "Testov Test Testovich", "age": 25, "date": date.today().isoformat(),
-        "position": "Marketing", "answers": answers,
+        "position": "Marketing", "phone": "+998 95 100 00 01", "answers": answers,  # telefon — majburiy
     })
     assert r.status_code == 201, r.text
 

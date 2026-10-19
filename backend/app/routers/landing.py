@@ -7,7 +7,10 @@ javob 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman». Hisoblash va HR hisoboti �
 
 Ochiq (login talab qilinmaydi):
     GET  /public/tests/{slug}          savolnoma (baholash kalitisiz) + bosqichlar (stages)
+    POST /public/tests/{slug}/phone-check  { phone } — savollardan OLDIN: raqam to‘g‘ri va hali ishlatilmaganmi
+                                       200 { phone: '+998 90 123 45 67', available: true } | 422 noto‘g‘ri | 409 band
     POST /public/tests/{slug}/submit   javoblarni yuborish — hisoblash serverda.
+                                       Telefon majburiy; bitta raqam bilan faqat bitta natija (409 — band).
                                        Natija F.I.Sh. bilan saqlanadi; xodimlar ro‘yxatida F.I.Sh. mos keladigan
                                        YAGONA xodim bo‘lsa, natija unga ham bog‘lanadi (employeeId).
 
@@ -28,28 +31,32 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from .. import landing
 from .. import persona_test as ps
 from .. import profile_test as pt
-from ..schemas import LandingSubmitIn
+from ..schemas import LandingPhoneCheckIn, LandingSubmitIn
 from ..security import current_user
 from ..store import get_store
-from ..utils import bad_request, get_or_404, not_found, now_local
+from ..utils import bad_request, conflict, get_or_404, not_found, now_local, phone_key
 
 public_router = APIRouter(prefix="/public", tags=["Landing (ochiq)"])
 router = APIRouter(tags=["Landing natijalari"], dependencies=[Depends(current_user)])
 
-# Oddiy himoya: bitta IP manzildan 1 soatda ko‘pi bilan 20 ta topshirish
+# Oddiy himoya: bitta IP manzildan 1 soatda ko‘pi bilan 20 ta topshirish va 40 ta telefon tekshiruvi
+# (raqamlarni ommaviy tekshirib chiqishdan himoya)
 RATE_LIMIT, RATE_WINDOW = 20, 3600
+LIMITS = {"submit": RATE_LIMIT, "phone": 40}
 _hits: dict[str, deque] = defaultdict(deque)
 _hits_lock = threading.Lock()
 
+PHONE_TAKEN = "Bu telefon raqami bilan avval ro‘yxatdan o‘tilgan. Boshqa raqam kiriting yoki HR bo‘limiga murojaat qiling."
 
-def _rate_limit(request: Request) -> None:
+
+def _rate_limit(request: Request, bucket: str = "submit") -> None:
     ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "?")
     now = time.monotonic()
     with _hits_lock:
-        q = _hits[ip]
+        q = _hits[f"{bucket}:{ip}"]
         while q and now - q[0] > RATE_WINDOW:
             q.popleft()
-        if len(q) >= RATE_LIMIT:
+        if len(q) >= LIMITS.get(bucket, RATE_LIMIT):
             raise HTTPException(status_code=429, detail="Juda ko‘p urinish. Birozdan keyin qayta urinib ko‘ring.")
         q.append(now)
 
@@ -103,10 +110,25 @@ def _summary(row: dict) -> dict:
     return {k: row.get(k) for k in SUMMARY_FIELDS}
 
 
+def _same_phone(key: str):
+    """Saqlangan natijalarda shu raqam bormi (eski yozuvlar ham — har xil yozilgan bo‘lsa ham, oxirgi 9 raqam bo‘yicha)."""
+    return lambda r: bool(key) and phone_key(r.get("phoneKey") or r.get("phone")) == key
+
+
 # ---------- Ochiq ----------
 @public_router.get("/tests/{slug}")
 def public_test(slug: str):
     return landing.public_view(_questionnaire(slug))
+
+
+@public_router.post("/tests/{slug}/phone-check")
+def public_phone_check(slug: str, body: LandingPhoneCheckIn, request: Request):
+    """Savollarga o‘tishdan oldin: raqam formati (sxemada) va bandligi tekshiriladi."""
+    _questionnaire(slug)
+    _rate_limit(request, "phone")
+    if get_store().landing_results.first(_same_phone(phone_key(body.phone))):
+        raise conflict(PHONE_TAKEN)
+    return {"phone": body.phone, "available": True}
 
 
 @public_router.post("/tests/{slug}/submit", status_code=201)
@@ -118,6 +140,9 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
         existing = store.landing_results.first(lambda r: r.get("clientId") == body.client_id)
         if existing:
             return {"id": existing["id"], "submittedAt": existing["submittedAt"], "duplicate": True}
+    key = phone_key(body.phone)
+    if store.landing_results.first(_same_phone(key)):
+        raise conflict(PHONE_TAKEN)
     if q.get("positions") and body.position not in landing.position_names(q):
         raise bad_request("Lavozim noto‘g‘ri tanlangan")
     try:
@@ -128,7 +153,8 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
 
     result = landing.score(q, answers, body.duration_sec, body.full_name)
     employee = _match_employee(store, body.full_name) if landing.is_profile(q) else None
-    row = store.landing_results.insert({
+    # Noyoblik saqlash qatlamida ham: tekshirish + yozish bitta qulf ichida (bir vaqtdagi ikki so‘rov ham o‘tmaydi)
+    row, taken = store.landing_results.insert_unique({
         "employeeId": employee["id"] if employee else None,
         "testSlug": q["slug"],
         "testTitle": q["title"],
@@ -137,6 +163,7 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
         "date": body.date,
         "position": body.position,
         "phone": body.phone,
+        "phoneKey": key,
         "submittedAt": now_local(),
         "durationSec": body.duration_sec,
         "clientId": body.client_id,
@@ -145,7 +172,9 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
         "sectionsInfo": q.get("sections", []),
         "viewed": False,
         **result,
-    })
+    }, conflict=_same_phone(key))
+    if taken:
+        raise conflict(PHONE_TAKEN)
     # Nomzodga ball ko‘rsatilmaydi — natijani HR ko‘radi
     return {"id": row["id"], "submittedAt": row["submittedAt"]}
 

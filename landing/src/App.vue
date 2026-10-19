@@ -9,6 +9,10 @@
  *   "Oldinga" — bosqichdagi barcha savollarga javob berilgach; "Orqaga" — oldingi bosqichga (javoblar saqlanadi,
  *   1-bosqichda — ma’lumotlarga); 4-bosqichda "Testni yakunlash". HR uchun batafsil hisobot — backendda.
  * Eski formatdagi savolnomalar (1–5 shkala, A/B/C/D) avvalgidek bitta-bitta savol bilan ishlaydi.
+ *
+ * Telefon raqami majburiy: "Testni boshlash" bosilganda avval brauzerda formati, so‘ng backendda
+ * (POST /public/tests/{slug}/phone-check) bandligi tekshiriladi. Raqam tasdiqlanmaguncha savollar ochilmaydi;
+ * topshirishda backend yana tekshiradi (bitta raqam — bitta natija).
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
@@ -20,7 +24,7 @@ import ScaleAnswer from '@/components/ScaleAnswer.vue'
 import ChoiceAnswer from '@/components/ChoiceAnswer.vue'
 import AgreeAnswer from '@/components/AgreeAnswer.vue'
 import { testApi } from '@/api'
-import { formatDate, onlyDigits, slugFromPath, todayISO } from '@/utils'
+import { formatDate, normalizePhone, phoneError, slugFromPath, todayISO } from '@/utils'
 
 const slug = computed(() => slugFromPath())
 // 40 savolli test qoralamasi eski (20 savolli) test qoralamasi bilan aralashmasin
@@ -56,6 +60,11 @@ const clientId = ref(newId())
 const submitting = ref(false)
 const submitError = ref('')
 const done = ref(null)
+// Telefon: backend tasdiqlagan raqam ('+998 90 123 45 67'); bo‘sh — savollarga o‘tib bo‘lmaydi
+const phoneVerified = ref('')
+const checkingPhone = ref(false)
+const startError = ref('')
+const phoneOk = computed(() => !!phoneVerified.value && normalizePhone(form.phone) === phoneVerified.value)
 
 function newId() {
   try {
@@ -157,7 +166,10 @@ function saveDraft() {
   try {
     localStorage.setItem(
       DRAFT_KEY.value,
-      JSON.stringify({ phase: phase.value, form, answers, current: current.value, stage: stage.value, startedAt: startedAt.value, clientId: clientId.value, done: done.value }),
+      JSON.stringify({
+        phase: phase.value, form, answers, current: current.value, stage: stage.value, startedAt: startedAt.value,
+        clientId: clientId.value, done: done.value, phoneVerified: phoneVerified.value,
+      }),
     )
   } catch {
     /* saqlash imkoni yo‘q — muhim emas */
@@ -175,6 +187,7 @@ function loadDraft() {
     startedAt.value = d.startedAt || null
     clientId.value = d.clientId || clientId.value
     done.value = d.done || null
+    phoneVerified.value = typeof d.phoneVerified === 'string' ? d.phoneVerified : ''
     const max = Math.max(0, total.value - 1)
     current.value = Math.min(Number(d.current) || 0, max)
     phase.value = ['intro', 'quiz', 'review', 'done'].includes(d.phase) ? d.phase : 'intro'
@@ -196,6 +209,21 @@ function clearDraft() {
   }
 }
 watch([phase, current, stage, () => ({ ...form }), () => ({ ...answers })], saveDraft, { deep: true })
+
+// Telefon tasdiqlanmagan bo‘lsa (masalan, eski qoralama yoki raqam o‘zgartirilgan) — savollar ochilmaydi,
+// javoblar saqlanib qoladi va foydalanuvchi ma'lumotlar formasiga qaytariladi
+watch(phase, (p) => {
+  if ((p === 'quiz' || p === 'review') && !phoneOk.value) {
+    phase.value = 'intro'
+    if (!errors.value.phone) errors.value = { ...errors.value, phone: phoneError(form.phone) || undefined }
+  }
+})
+watch(
+  () => form.phone,
+  (v) => {
+    if (phoneVerified.value && normalizePhone(v) !== phoneVerified.value) phoneVerified.value = ''
+  },
+)
 
 onMounted(async () => {
   try {
@@ -223,17 +251,45 @@ function validateForm() {
   else if (!Number.isInteger(age) || age < 16 || age > 70) e.age = '16 dan 70 gacha'
   if (!form.date) e.date = 'Sanani tanlang'
   if (!form.position) e.position = 'Lavozimni tanlang'
-  if (form.phone && onlyDigits(form.phone).length < 9) e.phone = 'Telefon raqam to‘liq emas'
+  const phoneMsg = phoneError(form.phone)
+  if (phoneMsg) e.phone = phoneMsg
   errors.value = e
   return !Object.keys(e).length
 }
-async function start() {
-  if (!validateForm()) {
-    await nextTick()
-    document.querySelector('.field-error')?.closest('.field')?.querySelector('input,button')?.focus()
-    return
+async function focusFirstError() {
+  await nextTick()
+  document.querySelector('.field-error')?.closest('.field')?.querySelector('input,button')?.focus()
+}
+function showPhoneError(message) {
+  phoneVerified.value = ''
+  errors.value = { ...errors.value, phone: message }
+  focusFirstError()
+}
+/** Raqamni backendda tekshiradi: true — bo‘sh va to‘g‘ri (phoneVerified o‘rnatiladi) */
+async function verifyPhone() {
+  checkingPhone.value = true
+  startError.value = ''
+  try {
+    const res = await testApi.checkPhone(slug.value, normalizePhone(form.phone))
+    form.phone = res.phone
+    phoneVerified.value = res.phone
+    return true
+  } catch (e) {
+    // 409 — raqam band, 422 — formati noto‘g‘ri: xabar telefon maydoni ostida
+    if (e.status === 409 || (e.status === 422 && e.field === 'phone')) showPhoneError(e.message)
+    else startError.value = e.message || 'Telefon raqamini tekshirib bo‘lmadi. Qayta urinib ko‘ring.'
+    return false
+  } finally {
+    checkingPhone.value = false
   }
+}
+async function start() {
+  if (checkingPhone.value) return
+  startError.value = ''
+  if (!validateForm()) return focusFirstError()
   form.fullName = form.fullName.trim().replace(/\s+/g, ' ')
+  form.phone = normalizePhone(form.phone)
+  if (!(await verifyPhone())) return
   if (!startedAt.value) startedAt.value = Date.now()
   phase.value = 'quiz'
   current.value = allAnswered.value ? 0 : Math.max(0, firstUnanswered.value)
@@ -245,7 +301,13 @@ async function start() {
   scrollTop()
 }
 function clearError(field) {
+  if (field === 'phone') startError.value = ''
   if (errors.value[field]) errors.value = { ...errors.value, [field]: undefined }
+}
+/** Maydondan chiqilganda to‘g‘ri raqam yagona ko‘rinishga keltiriladi: +998 90 123 45 67 */
+function formatPhoneField() {
+  const v = normalizePhone(form.phone)
+  if (v) form.phone = v
 }
 
 // ---------- 2-bosqich: savollar ----------
@@ -357,7 +419,7 @@ async function submit() {
       age: Number(form.age),
       date: form.date,
       position: form.position,
-      phone: form.phone.trim(),
+      phone: normalizePhone(form.phone),
       answers: { ...answers },
       durationSec: startedAt.value ? Math.round((Date.now() - startedAt.value) / 1000) : null,
       clientId: clientId.value,
@@ -366,7 +428,15 @@ async function submit() {
     phase.value = 'done'
     scrollTop()
   } catch (e) {
-    submitError.value = e.message || 'Yuborib bo‘lmadi. Qayta urinib ko‘ring.'
+    if (e.status === 409 || (e.status === 422 && e.field === 'phone')) {
+      // Raqam band bo‘lib qolgan yoki noto‘g‘ri — javoblar saqlanadi, ma'lumotlar formasida xabar ko‘rsatiladi
+      phoneVerified.value = ''
+      phase.value = 'intro'
+      scrollTop()
+      showPhoneError(e.message)
+    } else {
+      submitError.value = e.message || 'Yuborib bo‘lmadi. Qayta urinib ko‘ring.'
+    }
   } finally {
     submitting.value = false
   }
@@ -384,6 +454,8 @@ function restart() {
   clientId.value = newId()
   done.value = null
   submitError.value = ''
+  phoneVerified.value = ''
+  startError.value = ''
   phase.value = 'intro'
   scrollTop()
 }
@@ -400,12 +472,12 @@ const formatSubmitted = (v) => (v ? `${formatDate(v.slice(0, 10))}, ${v.slice(11
 const steps = computed(() =>
   isProfile.value
     ? [
-        { icon: UserRound, title: 'Ma’lumotlaringiz', text: 'F.I.Sh., yosh va lavozim' },
+        { icon: UserRound, title: 'Ma’lumotlaringiz', text: 'F.I.Sh., yosh, lavozim va telefon' },
         { icon: Layers, title: `${total.value} ta savol · ${stageCount.value} bosqich`, text: '«Qo‘shilmayman» yoki «Qo‘shilaman» — samimiy javob bering' },
         { icon: BadgeCheck, title: 'HR suhbati', text: 'Natijani HR ko‘rib chiqib siz bilan bog‘lanadi' },
       ]
     : [
-        { icon: UserRound, title: 'Ma’lumotlaringiz', text: 'F.I.Sh., yosh va lavozim' },
+        { icon: UserRound, title: 'Ma’lumotlaringiz', text: 'F.I.Sh., yosh, lavozim va telefon' },
         { icon: ListChecks, title: `${total.value} ta savol`, text: 'Shaxsiy sifatlar va savdo vaziyatlari' },
         { icon: BadgeCheck, title: 'HR javobi', text: 'Natijani HR ko‘rib chiqib bog‘lanadi' },
       ],
@@ -564,18 +636,38 @@ const steps = computed(() =>
               </div>
 
               <div class="field">
-                <label class="form-label" for="ct-phone">Telefon <span class="font-normal text-muted">(ixtiyoriy)</span></label>
+                <label class="form-label" for="ct-phone">Telefon <span class="text-red-500">*</span></label>
                 <div class="input-wrap">
                   <Phone class="input-icon" />
-                  <input id="ct-phone" v-model="form.phone" class="form-input has-icon" :class="{ 'has-error': errors.phone }" type="tel" inputmode="tel" placeholder="+998 90 123 45 67" autocomplete="tel" maxlength="30" @input="clearError('phone')" />
+                  <input
+                    id="ct-phone"
+                    v-model="form.phone"
+                    class="form-input has-icon"
+                    :class="{ 'has-error': errors.phone }"
+                    type="tel"
+                    inputmode="tel"
+                    placeholder="+998 90 123 45 67"
+                    autocomplete="tel"
+                    maxlength="30"
+                    required
+                    :aria-invalid="!!errors.phone"
+                    :aria-describedby="errors.phone ? 'ct-phone-error' : undefined"
+                    @input="clearError('phone')"
+                    @blur="formatPhoneField"
+                  />
                 </div>
-                <p v-if="errors.phone" class="form-error field-error">{{ errors.phone }}</p>
+                <p v-if="errors.phone" id="ct-phone-error" class="form-error field-error" role="alert">{{ errors.phone }}</p>
               </div>
             </div>
 
-            <button type="submit" class="btn-primary btn-lg group mt-6 w-full">
-              {{ answeredCount ? 'Testni davom ettirish' : 'Testni boshlash' }}
-              <ArrowRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            <p v-if="startError" class="mt-5 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+              <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" /> {{ startError }}
+            </p>
+
+            <button type="submit" class="btn-primary btn-lg group mt-6 w-full" :disabled="checkingPhone">
+              <Loader2 v-if="checkingPhone" class="h-4 w-4 animate-spin" />
+              {{ checkingPhone ? 'Tekshirilmoqda...' : answeredCount ? 'Testni davom ettirish' : 'Testni boshlash' }}
+              <ArrowRight v-if="!checkingPhone" class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
             <p class="mt-4 flex items-center justify-center gap-1.5 text-center text-xs text-muted">
               <ShieldCheck class="h-3.5 w-3.5 text-primary-500" /> Ma’lumotlaringiz faqat HR bo‘limiga ko‘rinadi

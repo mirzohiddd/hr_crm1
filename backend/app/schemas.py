@@ -7,6 +7,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
+from .utils import normalize_phone
+
 
 class In(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, extra="ignore")
@@ -179,12 +181,14 @@ class LandingSubmitIn(In):
     age: int = Field(ge=16, le=70)
     date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     position: str = Field(min_length=2, max_length=80)
-    phone: str = Field(default="", max_length=30)
+    # Majburiy: '+998 90 123 45 67' ko‘rinishiga keltiriladi; bitta raqam bilan faqat bir marta topshiriladi
+    phone: str = Field(default="", max_length=30, validate_default=True)
     answers: dict[str, Any]
     duration_sec: int | None = Field(default=None, ge=0, le=86400)
     client_id: str | None = Field(default=None, max_length=64)
 
     _strip_text = field_validator("full_name", "position", "phone", mode="before")(_strip)
+    _phone = field_validator("phone")(normalize_phone)
 
     @field_validator("full_name")
     @classmethod
@@ -193,6 +197,14 @@ class LandingSubmitIn(In):
         if len(v.split(" ")) < 2:
             raise ValueError("F.I.Sh. to‘liq kiritilsin (kamida familiya va ism)")
         return v
+
+
+class LandingPhoneCheckIn(In):
+    """Savollardan oldin: telefon raqami to‘g‘ri va hali ishlatilmaganini tekshirish."""
+    phone: str = Field(default="", max_length=30, validate_default=True)
+
+    _strip_text = field_validator("phone", mode="before")(_strip)
+    _phone = field_validator("phone")(normalize_phone)
 
 
 # ---------- Yakuniy bilim testi (ochiq, /test/yakuniy) ----------

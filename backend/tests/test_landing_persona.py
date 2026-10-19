@@ -4,6 +4,7 @@ Landing (/test/sotuv) — «Ishdagi shaxsiyat 360» (app/persona_test.py, format
 lavozimlar, naqshlar, nusxalash matni, landing API orqali saqlash va xodimga bog‘lash.
 """
 import copy
+import itertools
 import json
 from datetime import date
 
@@ -187,8 +188,13 @@ def test_validate_config_errors(cfg, mutate, message):
 
 
 # ---------- API ----------
+_phones = itertools.count(1)
+
+
 def candidate(**over):
-    data = {"fullName": "Shermanov Mirzohid", "age": 25, "date": date.today().isoformat(), "position": "Marketing"}
+    # Telefon majburiy va noyob — har bir nomzodga alohida raqam
+    data = {"fullName": "Shermanov Mirzohid", "age": 25, "date": date.today().isoformat(), "position": "Marketing",
+            "phone": f"+99893{next(_phones):07d}"}
     data.update(over)
     return data
 
@@ -217,7 +223,7 @@ def test_submit_and_hr_report(client, hr_headers, cfg):
     assert (row["positive"], row["negative"]) == (78, 95)
     d = client.get(f"{API}/landing-results/{rid}", headers=hr_headers).json()
     assert len(d["items"]) == 40 and d["report"]["version"] == 2
-    assert d["reportText"].startswith("ISHDAGI SHAXSIYAT 360 — NATIJA") and "Telefon: 903544499" in d["reportText"]
+    assert d["reportText"].startswith("ISHDAGI SHAXSIYAT 360 — NATIJA") and "Telefon: +998 90 354 44 99" in d["reportText"]
 
 
 @pytest.mark.parametrize("bad", [2, -1, "ha", 0.5])

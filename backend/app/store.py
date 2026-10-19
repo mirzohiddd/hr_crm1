@@ -98,6 +98,18 @@ class Collection:
             self._save()
             return copy.deepcopy(row)
 
+    def insert_unique(self, data: dict, conflict) -> tuple[dict | None, dict | None]:
+        """
+        Noyoblik cheklovi (ma'lumotlar bazasidagi UNIQUE o‘rniga): tekshirish va yozish bitta qulf ichida —
+        bir vaqtda kelgan ikki so‘rovdan faqat bittasi yoziladi.
+        conflict(row) True qaytargan yozuv bo‘lsa — (None, o‘sha yozuv), aks holda — (yangi yozuv, None).
+        """
+        with _lock:
+            for r in self._load():
+                if conflict(r):
+                    return None, copy.deepcopy(r)
+            return self.insert(data), None
+
     def update(self, item_id: int, patch: dict) -> dict | None:
         with _lock:
             for i, r in enumerate(self._load()):
