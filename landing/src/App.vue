@@ -636,7 +636,7 @@ const steps = computed(() =>
               </div>
 
               <div class="field">
-                <label class="form-label" for="ct-phone">Telefon <span class="text-red-500">*</span></label>
+                <label class="form-label" for="ct-phone">Telefon <span class="text-red-500">*</span> <span class="font-normal text-muted">(majburiy)</span></label>
                 <div class="input-wrap">
                   <Phone class="input-icon" />
                   <input
