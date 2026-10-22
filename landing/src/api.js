@@ -3,7 +3,9 @@
  *   GET  /public/tests/{slug}          savollar (baholash kalitisiz); profil testida — bosqichlar (stages) va variantlar
  *   POST /public/tests/{slug}/phone-check  { phone } — savollardan oldin: raqam to‘g‘ri va band emasligi (409 — band)
  *   POST /public/tests/{slug}/submit   javoblar — hisoblash serverda (telefon majburiy, bitta raqam — bitta natija)
- *                                      (profil testi: answers = { savolId: 0 = «Qo‘shilmayman» | 1 = «Qo‘shilaman» })
+ *                                      (profil testi: answers = { savolId: 0 = «Qo‘shilmayman» | 1 = «Qo‘shilaman» },
+ *                                       rasmli savollar: pictures = { rasmId: variant indeksi 0–3 })
+ *   GET  /public/tests/{slug}/images/{name}  rasmli savol rasmi
  */
 const BASE_URL = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/, '')
 
@@ -44,6 +46,9 @@ async function request(path, { method = 'GET', body } = {}) {
   }
   return data
 }
+
+/** Backend bergan yo‘l (masalan, rasmli savol rasmi: /public/tests/sotuv/images/rasm-1.jpg) → to‘liq manzil */
+export const assetUrl = (path) => (/^https?:\/\//.test(path || '') ? path : `${BASE_URL}${path || ''}`)
 
 export const testApi = {
   get: (slug) => request(`/public/tests/${encodeURIComponent(slug)}`),

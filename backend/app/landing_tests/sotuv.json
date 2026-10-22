@@ -6,7 +6,9 @@
     "traits — 13 ta xususiyat (har birida 3 ta savol). group: positive — yuqori samaradorlik (yuqori bo‘lgani yaxshi), negative — to‘sqinlik qiluvchi (past bo‘lgani yaxshi).",
     "directions — 4 ta yo‘nalish (radar ranglari). pairs — ziddiyatni tekshiruvchi juft savollar. roles — lavozimga moslik og‘irliklari.",
     "positions — ro‘yxatdan o‘tishda tanlanadigan lavozimlar (o‘zgarmagan).",
-    "Hisoblash: backend/app/persona_test.py. Bu test klinik tashxis emas."
+    "Hisoblash: backend/app/persona_test.py. Bu test klinik tashxis emas.",
+    "pictures — rasmli savollar (3 ta rasm × 4 variant), oxirgi (5-) bosqichda. Rasm fayllari: backend/app/landing_tests/images/. Har bir variantning description matni nomzodga ko‘rsatilmaydi — faqat HR hisobotida. Asosiy ko‘rsatkichlarga qo‘shilmaydi.",
+    "traits[].levelTexts va directions[].levelTexts — CRM hisobotida foiz o‘rniga ko‘rsatiladigan tavsiflar (high / mid / low)."
   ],
   "format": "persona",
   "slug": "sotuv",
@@ -37,7 +39,12 @@
       "interview": [
         "Ishingizda biror jarayonni o'zingiz yaxshilagan holatni aytib bering."
       ],
-      "developText": "Har hafta ishingizdagi bitta jarayonni qanday tezroq qilish mumkinligini yozib, rahbar bilan muhokama qiling."
+      "developText": "Har hafta ishingizdagi bitta jarayonni qanday tezroq qilish mumkinligini yozib, rahbar bilan muhokama qiling.",
+      "levelTexts": {
+        "high": "Yangi g‘oyalarni tez topadi va ishni yaxshilash yo‘llarini o‘zi izlaydi. Odatiy usul bilan cheklanib qolmaydi, takomillashtirish bo‘yicha takliflar bilan chiqadi.",
+        "mid": "Kerak bo‘lganda yangi usulni sinab ko‘radi, lekin ko‘pincha sinalgan yo‘lni afzal ko‘radi. Rag‘bat va namunalar berilsa, tashabbus ko‘rsatadi.",
+        "low": "Sinalgan, odatiy usul bilan ishlashni afzal ko‘radi; yangilikka sekin moslashadi. Aniq ko‘rsatma va tayyor algoritm bilan ishlaganda o‘zini ishonchli his qiladi."
+      }
     },
     {
       "id": "feedback",
@@ -50,7 +57,12 @@
       "interview": [
         "Rahbaringizdan olgan eng foydali tanqid qaysi edi va undan keyin nimani o'zgartirdingiz?"
       ],
-      "developText": "Tanqid eshitganda avval «rahmat, tushundim» deng va javobni keyinroq bering."
+      "developText": "Tanqid eshitganda avval «rahmat, tushundim» deng va javobni keyinroq bering.",
+      "levelTexts": {
+        "high": "Tanqid va izohlarni xotirjam qabul qiladi, o‘zi ham fikr-mulohaza so‘raydi. Xatolardan tez xulosa chiqaradi — tez o‘rganadigan xodim.",
+        "mid": "Tanqidni odatda qabul qiladi, lekin ohangiga qarab ba’zan o‘zini oqlashga o‘tadi. Izoh aniq va xolis berilsa, yaxshi foydalanadi.",
+        "low": "Tanqidni og‘ir qabul qiladi, darrov o‘zini oqlashga tushadi. O‘rganish sekinlashishi mumkin — izohni yolg‘iz holatda, aniq misollar bilan bering."
+      }
     },
     {
       "id": "yordam",
@@ -63,7 +75,12 @@
       "interview": [
         "Hamkasbingizga o'z vazifangiz bo'lmasa ham yordam bergan holatni aytib bering."
       ],
-      "developText": "Har hafta bitta hamkasbingizga ishida yordam taklif qiling yoki yaxshi ishini ochiq maqtang."
+      "developText": "Har hafta bitta hamkasbingizga ishida yordam taklif qiling yoki yaxshi ishini ochiq maqtang.",
+      "levelTexts": {
+        "high": "Hamkasblariga yordam berishga tayyor, ularni qo‘llab-quvvatlaydi. Jamoada iliq muhit yaratadi, yangi xodimga ustozlik qila oladi.",
+        "mid": "So‘ralganda yordam beradi, ammo ko‘proq o‘z vazifasiga e’tibor qaratadi. Jamoaviy ishda o‘z ulushini qo‘shadi.",
+        "low": "Asosan o‘z ishiga yopiladi, hamkasblarning muammolariga kam e’tibor beradi. Jamoaviy topshiriqlarda rollarni aniq taqsimlash kerak."
+      }
     },
     {
       "id": "ijtimoiylik",
@@ -76,7 +93,12 @@
       "interview": [
         "Yangi jamoaga kelganingizda odamlar bilan qanday tanishasiz?"
       ],
-      "developText": "Yig'ilishlarda kamida bitta fikr bildiring va jamoaviy tadbirlarda qatnashing."
+      "developText": "Yig'ilishlarda kamida bitta fikr bildiring va jamoaviy tadbirlarda qatnashing.",
+      "levelTexts": {
+        "high": "Odamlar bilan tez kirishadi, notanish muhitda ham erkin muloqot qiladi. Mijozlar va jamoa bilan faol ishlash talab qilinadigan lavozimlarda kuchli.",
+        "mid": "Tanish muhitda erkin muloqot qiladi, yangi odamlar bilan kirishishga biroz vaqt kerak. Muloqot ko‘nikmasi ish davomida rivojlanadi.",
+        "low": "Ko‘pchilik bilan muloqotdan ko‘ra yakka ishlashni afzal ko‘radi, yangi jamoaga sekin kirishadi. Doimiy mijoz bilan muloqot talab qiladigan ishda qiynalishi mumkin."
+      }
     },
     {
       "id": "tasdiqlash",
@@ -88,7 +110,12 @@
       "interview": [
         "Rozi bo'lmagan holda «xo'p» deb, keyin afsuslangan paytingiz bo'lganmi?"
       ],
-      "developText": "Rozi bo'lmagan paytingizda muloyim, lekin aniq «yo'q» deyishni mashq qiling."
+      "developText": "Rozi bo'lmagan paytingizda muloyim, lekin aniq «yo'q» deyishni mashq qiling.",
+      "levelTexts": {
+        "high": "Hammaga yoqishga qattiq intiladi, «yo‘q» deyishga qiynaladi va maqtovga bog‘liq. Mijoz yoki rahbar bosimida ortiqcha va’da berib yuborishi mumkin.",
+        "mid": "Boshqalarning fikri va maqtovi uning uchun muhim, lekin bu qarorlariga kuchli ta’sir qilmaydi. Ba’zan rad etishni kechiktiradi.",
+        "low": "O‘z fikrini boshqalarning bahosiga bog‘lamaydi, kerak bo‘lsa xotirjam «yo‘q» deya oladi. Maqtovsiz ham ishini davom ettiradi."
+      }
     },
     {
       "id": "qaramlik",
@@ -100,7 +127,12 @@
       "interview": [
         "Rahbaringiz yo'q paytda muhim qaror qabul qilishingiz kerak bo'lsa, nima qilasiz?"
       ],
-      "developText": "Kichik masalalarda rahbarga borishdan oldin o'zingiz 2 ta yechim tayyorlang."
+      "developText": "Kichik masalalarda rahbarga borishdan oldin o'zingiz 2 ta yechim tayyorlang.",
+      "levelTexts": {
+        "high": "Qarorni boshqalardan kutadi, mustaqil harakat qilishga ikkilanadi. Aniq ko‘rsatma va doimiy nazorat bo‘lmasa, ish to‘xtab qolishi mumkin.",
+        "mid": "Odatiy vazifalarda mustaqil, lekin muhim yoki yangi vaziyatda rahbar tasdig‘ini kutadi. Ishonch ortgani sari mustaqilligi oshadi.",
+        "low": "Mustaqil qaror qabul qiladi va ko‘rsatmani kutib o‘tirmaydi. O‘z vazifasi uchun javobgarlikni o‘zi oladi."
+      }
     },
     {
       "id": "ruhiy_bosim",
@@ -112,7 +144,12 @@
       "interview": [
         "Ish juda ko'payib ketgan bir kuningizni eslang. O'zingizni qanday tutdingiz?"
       ],
-      "developText": "Ishlar ko'payganda ro'yxat tuzib, eng muhim 3 tasidan boshlang; kun oxirida bajarilganlarni belgilang."
+      "developText": "Ishlar ko'payganda ro'yxat tuzib, eng muhim 3 tasidan boshlang; kun oxirida bajarilganlarni belgilang.",
+      "levelTexts": {
+        "high": "Ish ko‘payganda kuchli xavotirlanadi, kichik muammolar uni uzoq bezovta qiladi. Bosimli davrda samaradorligi pasayishi va tez charchashi mumkin.",
+        "mid": "Odatiy bosimni yengadi, lekin uzoq davom etadigan zo‘riqishdan keyin tiklanishga vaqt kerak. Ustuvorliklar aniq bo‘lsa, barqaror ishlaydi.",
+        "low": "Bosim va shoshilinch vaziyatda ham xotirjam qoladi, ishni oxiriga yetkazadi. Yuklama yuqori bo‘lgan lavozimlar uchun mos."
+      }
     },
     {
       "id": "qattiqqollik",
@@ -124,7 +161,12 @@
       "interview": [
         "O'z fikringizdan voz kechib, boshqaning taklifini qabul qilgan holatni aytib bering."
       ],
-      "developText": "Bahsda o'z fikringizni aytishdan oldin boshqaning fikrini o'z so'zlaringiz bilan qaytarib ayting."
+      "developText": "Bahsda o'z fikringizni aytishdan oldin boshqaning fikrini o'z so'zlaringiz bilan qaytarib ayting.",
+      "levelTexts": {
+        "high": "O‘z fikrida qattiq turadi, o‘zgarish va boshqa usullarga qarshilik qiladi. Jamoaviy qarorlarda murosaga kelish qiyinlashishi mumkin.",
+        "mid": "O‘z usulini afzal ko‘radi, lekin asosli dalil keltirilsa, fikrini o‘zgartiradi. Yangi qoidalarga vaqt o‘tib moslashadi.",
+        "low": "Moslashuvchan: boshqalarning fikrini tinglaydi va yaxshiroq usul topilsa, uni tezda qabul qiladi."
+      }
     },
     {
       "id": "xusumat",
@@ -136,7 +178,12 @@
       "interview": [
         "Hamkasbingiz bilan keskin kelishmovchilik bo'lgan holatni aytib bering. Qanday hal qildingiz?"
       ],
-      "developText": "Jahlingiz chiqqanda javob berishdan oldin 10 gacha sanang yoki suhbatni keyinga qoldiring."
+      "developText": "Jahlingiz chiqqanda javob berishdan oldin 10 gacha sanang yoki suhbatni keyinga qoldiring.",
+      "levelTexts": {
+        "high": "Tez jahli chiqadi, keskin gapirishi va kek saqlashi mumkin. Qiyin mijoz yoki bahsli vaziyatda nizo chiqish xavfi bor.",
+        "mid": "Odatda o‘zini tutadi, ammo charchaganda yoki adolatsizlik sezganda keskin javob berishi mumkin.",
+        "low": "Xotirjam va bosiq: nizoli vaziyatda ham hurmat bilan gaplashadi, kek saqlamaydi."
+      }
     },
     {
       "id": "nazorat",
@@ -148,7 +195,12 @@
       "interview": [
         "Ishni boshqaga topshirsangiz, uni qanchalik tez-tez tekshirasiz?"
       ],
-      "developText": "Topshirgan ishni faqat kelishilgan nazorat nuqtalarida tekshiring, oraliqda aralashmang."
+      "developText": "Topshirgan ishni faqat kelishilgan nazorat nuqtalarida tekshiring, oraliqda aralashmang.",
+      "levelTexts": {
+        "high": "Ishni boshqalarga ishonib topshirishga qiynaladi, har qadamni o‘zi nazorat qiladi. Ko‘p ish o‘zida to‘planib, jamoa tashabbusi susayishi mumkin.",
+        "mid": "Muhim ishlarni o‘zi tekshirishni yaxshi ko‘radi, lekin kelishilgan holda vazifani topshira oladi.",
+        "low": "Hamkasblariga ishonadi, vazifani topshirib, natijani kelishilgan muddatda tekshiradi."
+      }
     },
     {
       "id": "raqobat",
@@ -163,7 +215,12 @@
       "interview": [
         "Hamkasbingiz sizdan yaxshiroq natija ko'rsatganda nima his qildingiz va nima qildingiz?"
       ],
-      "developText": "Raqobatni jamoaviy maqsadga yo'naltiring: shaxsiy natija bilan birga jamoa natijasini ham kuzating."
+      "developText": "Raqobatni jamoaviy maqsadga yo'naltiring: shaxsiy natija bilan birga jamoa natijasini ham kuzating.",
+      "levelTexts": {
+        "high": "G‘olib bo‘lishni juda yaxshi ko‘radi, raqobat uni ruhlantiradi. Reja va reytingli ishda kuchli, lekin hamkasblar bilan munosabatda keskinlik bo‘lishi mumkin.",
+        "mid": "Raqobat uni ruhlantiradi, lekin jamoaviy natijani ham qadrlaydi. Sog‘lom musobaqa muhitida yaxshi ishlaydi.",
+        "low": "Raqobatdan ko‘ra hamkorlikni afzal ko‘radi. Reyting va bellashuv uni kuchli rag‘batlantirmaydi."
+      }
     },
     {
       "id": "masuliyat",
@@ -176,7 +233,12 @@
       "interview": [
         "Muddatni o'tkazib yuborgan holatingizni aytib bering: nima sabab bo'ldi va keyin nima qildingiz?"
       ],
-      "developText": "Barcha va'dalarni bitta ro'yxatga yozing va har kuni ertalab tekshiring."
+      "developText": "Barcha va'dalarni bitta ro'yxatga yozing va har kuni ertalab tekshiring.",
+      "levelTexts": {
+        "high": "Va’dasini eslatmasdan bajaradi, ishini topshirishdan oldin tekshiradi. Muddat va sifatga qat’iy amal qiladi — unga mas’uliyatli ishni ishonib topshirish mumkin.",
+        "mid": "Vazifalarni odatda bajaradi, ammo yuklama oshganda yoki nazorat bo‘lmaganda izchillik pasayishi mumkin. Aniq muddat va eslatmalar foydali.",
+        "low": "Ishni keyinga qoldirib unutishi mumkin, nazorat va eslatma talab qiladi. Dastlabki oylarda kunlik vazifalar ro‘yxati va haftalik nazorat kerak."
+      }
     },
     {
       "id": "yutuq",
@@ -189,7 +251,12 @@
       "interview": [
         "O'zingizga qo'ygan eng katta ish maqsadingiz nima edi va unga qanday erishdingiz?"
       ],
-      "developText": "Har oy uchun bitta o'lchanadigan maqsad qo'ying va natijani rahbar bilan muhokama qiling."
+      "developText": "Har oy uchun bitta o'lchanadigan maqsad qo'ying va natijani rahbar bilan muhokama qiling.",
+      "levelTexts": {
+        "high": "Katta maqsad qo‘yadi va natija uchun qattiq harakat qiladi. O‘sishga, yangi darajaga chiqishga ichki motivatsiyasi kuchli.",
+        "mid": "Qo‘yilgan maqsadga erishishga harakat qiladi, lekin o‘zi uchun yuqori maqsadni kamdan-kam belgilaydi. Aniq rejalar va rag‘bat bilan natijasi oshadi.",
+        "low": "Erishilgan darajada qolishga moyil, o‘sish uchun tashqi turtki kerak. Kichik, aniq maqsadlar va tez-tez rag‘bat foydali."
+      }
     }
   ],
   "directions": [
@@ -204,7 +271,12 @@
         "masuliyat",
         "yutuq",
         "raqobat"
-      ]
+      ],
+      "levelTexts": {
+        "high": "Maqsadga erishish va ishni sifatli bajarishga kuchli yo‘naltirilgan.",
+        "mid": "Natijaga yo‘naltirilganlik o‘rtacha: aniq maqsad va nazorat bo‘lganda yaxshi natija beradi.",
+        "low": "Natija uchun ichki turtki sust — aniq rejalar, nazorat va rag‘bat kerak."
+      }
     },
     {
       "id": "jamoa",
@@ -216,7 +288,12 @@
         "yordam",
         "feedback",
         "ijtimoiylik"
-      ]
+      ],
+      "levelTexts": {
+        "high": "Hamkorlikka, yordam berishga va fikr-mulohazaga ochiq — jamoada yaxshi ishlaydi.",
+        "mid": "Jamoa bilan ishlay oladi, lekin bu ko‘nikmalar barqaror emas.",
+        "low": "Ko‘proq yakka ishlashga moyil; jamoaviy ish va muloqot ko‘nikmalari rivojlanishi kerak."
+      }
     },
     {
       "id": "moslashish",
@@ -228,7 +305,12 @@
         "tasdiqlash",
         "qaramlik",
         "ruhiy_bosim"
-      ]
+      ],
+      "levelTexts": {
+        "high": "Kelishmovchilikdan qochish, boshqalarga bog‘liqlik va ichki bosim yaqqol — bu ishga xalaqit berishi mumkin.",
+        "mid": "Ba’zi vaziyatlarda boshqalarga haddan tashqari moslashadi yoki bosimni og‘ir qabul qiladi.",
+        "low": "O‘z fikrini saqlay oladi, mustaqil va bosimga chidamli — bu yaxshi belgi."
+      }
     },
     {
       "id": "nazorat",
@@ -241,7 +323,12 @@
         "xusumat",
         "nazorat",
         "raqobat"
-      ]
+      ],
+      "levelTexts": {
+        "high": "Boshqarishga, bosim o‘tkazishga va qattiqqo‘llikka moyillik yaqqol — jamoada keskinlik chiqishi mumkin.",
+        "mid": "Ba’zan qattiqqo‘llik yoki ortiqcha nazorat namoyon bo‘ladi.",
+        "low": "Boshqalarga bosim o‘tkazmaydi, moslashuvchan va xotirjam — bu yaxshi belgi."
+      }
     }
   ],
   "pairs": [
@@ -585,6 +672,81 @@
       "text": "Rejalar o'zgarishini yoqtirmayman va unga qarshilik qilaman.",
       "trait": "qattiqqollik",
       "key": "direct"
+    }
+  ],
+  "picturesNote": "Rasmli savollar — qo‘shimcha kuzatuv: birinchi ko‘rilgan narsa insonning diqqati va idrok uslubi haqida taxminiy ma’lumot beradi. Bu ilmiy tashxis emas va asosiy ko‘rsatkichlarga qo‘shilmaydi — suhbatda tasdiqlang.",
+  "pictures": [
+    {
+      "id": "rasm-1",
+      "title": "1-rasm",
+      "image": "rasm-1.jpg",
+      "question": "Rasmga qarang. Birinchi bo‘lib nimani ko‘rdingiz?",
+      "options": [
+        {
+          "text": "Ayolning yuzi",
+          "description": "Avval butun manzarani, keyin tafsilotlarni ko‘radi — umumiy vaziyatni tez anglaydi. Odamlarga, ularning kayfiyati va yuz ifodasiga e’tiborli; muloqotda hissiy ohangni tez sezadi. Strategik fikrlash va odamlar bilan ishlashga moyil."
+        },
+        {
+          "text": "Otlar",
+          "description": "Avval aniq, harakatdagi tafsilotlarga e’tibor qaratadi. Amaliy, harakatga yo‘naltirilgan va energiyali; vazifani tez boshlashni yaxshi ko‘radi. Ba’zan katta manzarani ko‘rish uchun to‘xtab, bir qadam orqaga chekinish foydali."
+        },
+        {
+          "text": "Uchayotgan qushlar",
+          "description": "Kichik, chetdagi detallarni sezadi — kuzatuvchan va sinchkov. Erkinlik va mustaqil ishlashni qadrlaydi; qat’iy nazoratli muhitda zerikishi mumkin. Tahlil, sifat nazorati va xatoni topish kabi vazifalarda foydali."
+        },
+        {
+          "text": "Hammasini birdaniga",
+          "description": "Bir vaqtning o‘zida bir nechta qatlamni ko‘ra oladi: diqqatini taqsimlay oladi va ko‘p vazifali muhitga tez moslashadi. Ijodiy va moslashuvchan fikrlaydi; ustuvorlik aniq bo‘lmasa, diqqati tarqalib ketishi mumkin."
+        }
+      ]
+    },
+    {
+      "id": "rasm-2",
+      "title": "2-rasm",
+      "image": "rasm-2.jpg",
+      "question": "Rasmga qarang. Birinchi bo‘lib nimani ko‘rdingiz?",
+      "options": [
+        {
+          "text": "Vaza (qadah)",
+          "description": "Narsalar va natijaga yo‘naltirilgan: avval aniq, moddiy shaklni ko‘radi. Tartib, tuzilma va aniq vazifalar bilan ishlashni afzal ko‘radi; qarorlarni mantiq asosida qabul qiladi."
+        },
+        {
+          "text": "Bir-biriga qarab turgan ikki odam",
+          "description": "Odamlar va munosabatlarga yo‘naltirilgan: avval insonlarni va ular orasidagi aloqani ko‘radi. Muloqot, jamoaviy ish va mijozlar bilan ishlashda kuchli; hamdardligi yuqori bo‘lishi mumkin."
+        },
+        {
+          "text": "Ikkalasini birdaniga",
+          "description": "Vaziyatga bir necha nuqtai nazardan qaray oladi. Moslashuvchan, murosaga tayyor; bahsda ikki tomonni ham tushunishga harakat qiladi. Vositachilik va muzokara talab qiladigan vazifalarga mos."
+        },
+        {
+          "text": "Aniq bir narsani ko‘rmadim",
+          "description": "Birinchi taassurotga shoshilmaydi, ehtiyotkor yoki bunday topshiriqlarga kam e’tibor beradi. Suhbatda ma’lumot yetishmagan vaziyatda qanday qaror qabul qilishini so‘rab ko‘ring."
+        }
+      ]
+    },
+    {
+      "id": "rasm-3",
+      "title": "3-rasm",
+      "image": "rasm-3.jpg",
+      "question": "Rasmga qarang. Birinchi bo‘lib nimani ko‘rdingiz?",
+      "options": [
+        {
+          "text": "Daraxt",
+          "description": "Asosiy, ko‘zga yaqqol tashlanadigan narsani ko‘radi: amaliy, real va sodda fikrlaydi. Barqaror, aniq ko‘rsatmali ishni yoqtiradi; yashirin ma’nolarni izlashga kam vaqt sarflaydi."
+        },
+        {
+          "text": "Pastdagi erkak va ayol",
+          "description": "Avvalo odamlar va ular o‘rtasidagi munosabatga e’tibor beradi. Ijtimoiy vaziyatlarni yaxshi sezadi, jamoada iliq muhitni qadrlaydi; mijozlar bilan muloqotda kuchli."
+        },
+        {
+          "text": "Shoxlar orasidagi yashirin yuzlar",
+          "description": "Sinchkov va tahliliy fikrlaydi: yuzaki ko‘rinish ortidagi tafsilotlarni izlaydi. Muammoning ildizini topish, tekshirish va tahlil talab qiladigan ishlarda kuchli."
+        },
+        {
+          "text": "Ko‘p yuzni birdaniga (6 tadan ortiq)",
+          "description": "Diqqati yuqori, kuzatuvchanligi kuchli — bir qarashda ko‘p ma’lumotni qamrab oladi. Tez o‘rganadi va murakkab vazifalarni yaxshi uddalaydi; ba’zan tafsilotlarga haddan tashqari berilib ketishi mumkin."
+        }
+      ]
     }
   ]
 }

@@ -129,6 +129,12 @@ def public_view(q: dict) -> dict:
             "stageSize": q.get("stageSize", 10), "stages": (ps if is_persona(q) else pt).stages(q),
             # Kalit (key, scale, samimiylik, og‘irliklar) yuborilmaydi — faqat matn va variantlar
             "questions": [{"id": i["id"], "text": i["text"], "options": i["options"]} for i in q["questions"]],
+            # Rasmli savollar (oxirgi bosqich): variant tavsiflari (description) nomzodga yuborilmaydi
+            "pictures": [
+                {"id": p["id"], "title": p["title"], "question": p["question"],
+                 "image": ps.image_url(q["slug"], p["image"]), "options": [o["text"] for o in p["options"]]}
+                for p in q.get("pictures") or []
+            ] if is_persona(q) else [],
         }
     q = copy.deepcopy(q)
     for item in q["questions"]:
@@ -242,10 +248,30 @@ def validate_answers(q: dict, answers: dict) -> dict[int, int]:
     return clean
 
 
-def score(q: dict, answers: dict[int, int], duration_sec: int | None = None, full_name: str = "") -> dict:
+def validate_pictures(q: dict, pictures: dict | None) -> dict[str, int]:
+    """Rasmli savollar javoblari (faqat persona testida): {rasm_id: variant}."""
+    if not is_persona(q):
+        return {}
+    try:
+        return ps.validate_pictures(q, pictures)
+    except ValueError as e:
+        raise QuestionnaireError(str(e))
+
+
+def picture_path(slug: str, name: str) -> Path | None:
+    """Savolnomadagi rasm fayli (faqat JSON da ko‘rsatilganlari beriladi)."""
+    q = load_questionnaire(slug)
+    if not q or not any(p.get("image") == name for p in q.get("pictures") or []):
+        return None
+    path = ps.IMAGES_DIR / name
+    return path if path.is_file() else None
+
+
+def score(q: dict, answers: dict[int, int], duration_sec: int | None = None, full_name: str = "",
+          pictures: dict[str, int] | None = None) -> dict:
     """Javoblarni kalit bo‘yicha baholaydi va har bir savol tahlilini qaytaradi."""
     if is_persona(q):
-        return ps.grade(q, answers, duration_sec, full_name)
+        return ps.grade(q, answers, duration_sec, full_name, pictures)
     if is_profile(q):
         g = pt.grade(q, answers, duration_sec)
         # Ro‘yxat uchun "sections" — shkalalar bo‘yicha ball (eski natijalar bilan bir xil shakl)

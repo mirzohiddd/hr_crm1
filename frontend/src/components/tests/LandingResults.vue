@@ -78,14 +78,25 @@ function exportCsv() {
   downloadCsv(
     `nomzodlar-testi-${new Date().toISOString().slice(0, 10)}.csv`,
     ['F.I.Sh.', 'Lavozim', 'Yosh', 'Telefon', 'Sana', 'Topshirilgan vaqt', 'Holati / HR xulosasi', 'Profil', 'Ishonchlilik',
-      'Yuqori samaradorlik', 'To‘sqinlik qiluvchi', 'Xususiyatlar', 'Eng mos lavozim', 'Ball', 'Foiz'],
+      'Yuqori samaradorlik', 'To‘sqinlik qiluvchi', 'Xususiyatlar', 'Rasmli savollar', 'Eng mos lavozim', 'Ball', 'Foiz'],
     filtered.value.map((r) => {
+      // «Ishdagi shaxsiyat 360»: foiz o‘rniga daraja (backend → positiveWord, traitLevels, bestPosition.fit)
+      if (isPersona(r)) {
+        return [
+          r.fullName, r.position, r.age, r.phone, r.date, formatDateTime(r.submittedAt), LANDING_RESULT_LABELS[r.status] || r.status,
+          r.profileTitle || '', r.reliabilityLevel || '', r.positiveWord || '', r.negativeWord || '',
+          (r.traitLevels || []).map((t) => `${t.title} — ${t.levelLabel.toLowerCase()}`).join('; '),
+          (r.pictures || []).map((p) => `${p.title}: ${p.answerText}`).join('; '),
+          r.bestPosition ? `${r.bestPosition.name}${r.bestPosition.fit ? ` (${r.bestPosition.fit.toLowerCase()})` : ''}` : '',
+          '', '',
+        ]
+      }
       const traits = (r.sections || []).map((s) => `${s.title} ${s.percent ?? Math.round((s.points / s.maxPoints) * 100)}%`).join('; ')
       return [
         r.fullName, r.position, r.age, r.phone, r.date, formatDateTime(r.submittedAt), LANDING_RESULT_LABELS[r.status] || r.status,
         r.profileTitle || '', r.reliabilityLevel || (typeof r.reliability === 'number' ? `${r.reliability}%` : ''),
-        r.positive ?? '', r.negative ?? '', traits, r.bestPosition ? `${r.bestPosition.name} (${r.bestPosition.percent}%)` : '',
-        isPersona(r) ? '' : `${r.points}/${r.maxPoints}`, isPersona(r) ? '' : `${r.percent}%`,
+        r.positive ?? '', r.negative ?? '', traits, '', r.bestPosition ? `${r.bestPosition.name} (${r.bestPosition.percent}%)` : '',
+        `${r.points}/${r.maxPoints}`, `${r.percent}%`,
       ]
     }),
   )
@@ -119,7 +130,7 @@ async function confirmDelete() {
     <div class="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-primary-600 to-primary-500 text-white shadow-md shadow-primary-600/25"><Link2 class="h-5 w-5" /></span>
       <div class="min-w-0 flex-1">
-        <p class="text-sm font-semibold text-ink">«Ishdagi shaxsiyat 360» — yangi xodimlar testi havolasi (40 ta savol, 4 bosqich)</p>
+        <p class="text-sm font-semibold text-ink">«Ishdagi shaxsiyat 360» — yangi xodimlar testi havolasi (40 ta savol + 3 ta rasm, 5 bosqich)</p>
         <p class="text-[13px] text-muted">Yangi kelgan xodim yoki nomzodga yuboring — login talab qilinmaydi: <span class="break-all font-medium text-primary-700">{{ publicUrl }}</span></p>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -202,6 +213,7 @@ async function confirmDelete() {
                 <td v-if="isPersona(r)" class="table-td">
                   <p class="text-[11px] text-muted">Eng mos lavozim</p>
                   <p class="max-w-[11rem] truncate text-[13px] font-medium text-ink">{{ r.bestPosition?.name || '—' }}</p>
+                  <p v-if="r.bestPosition?.fit" class="text-[11px] text-muted">{{ r.bestPosition.fit }}</p>
                 </td>
                 <td v-else class="table-td">
                   <div class="flex items-center gap-2">

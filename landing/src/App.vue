@@ -8,6 +8,8 @@
  * javob — «Qo‘shilmayman» / «Qo‘shilaman».
  *   "Oldinga" — bosqichdagi barcha savollarga javob berilgach; "Orqaga" — oldingi bosqichga (javoblar saqlanadi,
  *   1-bosqichda — ma’lumotlarga); 4-bosqichda "Testni yakunlash". HR uchun batafsil hisobot — backendda.
+ *   Oxirgi bosqich — rasmli savollar (test.pictures, 3 ta rasm × 4 variant): nomzod rasmda birinchi bo‘lib
+ *   ko‘rgan narsani tanlaydi; javoblar submit da pictures = { rasmId: variant } sifatida yuboriladi.
  * Eski formatdagi savolnomalar (1–5 shkala, A/B/C/D) avvalgidek bitta-bitta savol bilan ishlaydi.
  *
  * Telefon raqami majburiy: "Testni boshlash" bosilganda avval brauzerda formati, so‘ng backendda
@@ -16,14 +18,15 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
-  AlertCircle, ArrowLeft, ArrowRight, BadgeCheck, Briefcase, CalendarDays, Check, CheckCircle2, Clock, Flag, Keyboard,
-  Layers, ListChecks, Loader2, Pencil, Phone, RotateCcw, Send, ShieldCheck, Sparkles, Target, UserRound,
+  AlertCircle, ArrowLeft, ArrowRight, BadgeCheck, Briefcase, CalendarDays, Check, CheckCircle2, Clock, Flag, Image as ImageIcon,
+  Keyboard, Layers, ListChecks, Loader2, Pencil, Phone, RotateCcw, Send, ShieldCheck, Sparkles, Target, UserRound,
 } from 'lucide-vue-next'
 import BrandLogo from '@/components/BrandLogo.vue'
 import ScaleAnswer from '@/components/ScaleAnswer.vue'
 import ChoiceAnswer from '@/components/ChoiceAnswer.vue'
 import AgreeAnswer from '@/components/AgreeAnswer.vue'
-import { testApi } from '@/api'
+import PictureQuestion from '@/components/PictureQuestion.vue'
+import { assetUrl, testApi } from '@/api'
 import { formatDate, normalizePhone, phoneError, slugFromPath, todayISO } from '@/utils'
 
 const slug = computed(() => slugFromPath())
@@ -53,6 +56,7 @@ const phase = ref('intro') // intro | quiz | review | done
 const form = reactive({ fullName: '', age: '', date: todayISO(), position: '', phone: '' })
 const errors = ref({})
 const answers = reactive({})
+const picAnswers = reactive({}) // rasmli savollar: { rasmId: variant indeksi }
 const current = ref(0)
 const direction = ref(1)
 const startedAt = ref(null)
@@ -78,7 +82,16 @@ function newId() {
 const question = computed(() => questions.value[current.value])
 const isAnswered = (q) => q && answers[q.id] !== undefined && answers[q.id] !== null
 const answeredCount = computed(() => questions.value.filter(isAnswered).length)
-const progress = computed(() => (total.value ? Math.round((answeredCount.value / total.value) * 100) : 0))
+// Rasmli savollar (faqat bosqichli persona testida)
+const pictures = computed(() => (test.value?.format === 'persona' ? test.value?.pictures || [] : []))
+const hasPictures = computed(() => pictures.value.length > 0)
+const isPicDone = (p) => p && Number.isInteger(picAnswers[p.id])
+const picAnsweredCount = computed(() => pictures.value.filter(isPicDone).length)
+const allPicturesDone = computed(() => pictures.value.every(isPicDone))
+// Umumiy progress: savollar + rasmlar
+const doneCount = computed(() => answeredCount.value + picAnsweredCount.value)
+const grandTotal = computed(() => total.value + pictures.value.length)
+const progress = computed(() => (grandTotal.value ? Math.round((doneCount.value / grandTotal.value) * 100) : 0))
 const firstUnanswered = computed(() => questions.value.findIndex((q) => !isAnswered(q)))
 const allAnswered = computed(() => total.value > 0 && firstUnanswered.value === -1)
 // Savollar xaritasida faqat javob berilganlar va birinchi javobsiz savolgacha o‘tish mumkin
@@ -97,20 +110,32 @@ const stages = computed(() => {
   for (let i = 0; i < questions.value.length; i += size) out.push(questions.value.slice(i, i + size))
   return out
 })
-const stageCount = computed(() => stages.value.length)
+// Bosqichlar: savollar bosqichlari + (bo‘lsa) oxirida rasmlar bosqichi
+const picStage = computed(() => (hasPictures.value ? stages.value.length : -1))
+const stageCount = computed(() => stages.value.length + (hasPictures.value ? 1 : 0))
+const isPictureStage = computed(() => stage.value === picStage.value)
 const stageQuestions = computed(() => stages.value[stage.value] || [])
 const stageOffset = computed(() => stages.value.slice(0, stage.value).reduce((n, s) => n + s.length, 0))
 const isLastStage = computed(() => stage.value === stageCount.value - 1)
-const stageDone = (i) => (stages.value[i] || []).every(isAnswered)
-const stageAnswered = (i) => (stages.value[i] || []).filter(isAnswered).length
+const stageSize = (i) => (i === picStage.value ? pictures.value.length : (stages.value[i] || []).length)
+const stageDone = (i) => (i === picStage.value ? allPicturesDone.value : (stages.value[i] || []).every(isAnswered))
+const stageAnswered = (i) => (i === picStage.value ? picAnsweredCount.value : (stages.value[i] || []).filter(isAnswered).length)
+const stageRange = (i) => {
+  if (i === picStage.value) return 'rasmlar'
+  const from = stages.value.slice(0, i).reduce((n, s) => n + s.length, 0)
+  return `${from + 1}–${from + (stages.value[i] || []).length}`
+}
 const firstOpenStage = computed(() => {
-  const i = stages.value.findIndex((_, k) => !stageDone(k))
-  return i === -1 ? Math.max(0, stageCount.value - 1) : i
+  for (let i = 0; i < stageCount.value; i++) if (!stageDone(i)) return i
+  return Math.max(0, stageCount.value - 1)
 })
 const stageReachable = (i) => i <= firstOpenStage.value
 
 function scrollToQuestion(q) {
   nextTick(() => document.getElementById(`q-${q.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+}
+function scrollToPicture(p) {
+  nextTick(() => document.getElementById(`pic-${p.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
 }
 function goStage(i) {
   if (i < 0 || i >= stageCount.value || !stageReachable(i) || submitting.value) return
@@ -122,6 +147,14 @@ function goStage(i) {
 }
 /** Bosqichdagi birinchi javobsiz savolni ko‘rsatadi; hammasiga javob berilgan bo‘lsa — false */
 function showMissing() {
+  if (isPictureStage.value) {
+    const missingPics = pictures.value.filter((p) => !isPicDone(p))
+    if (!missingPics.length) return false
+    highlight.value = true
+    submitError.value = `${missingPics.length} ta rasmga javob berilmagan. Har bir rasmda birinchi ko‘rgan narsangizni tanlang.`
+    scrollToPicture(missingPics[0])
+    return true
+  }
   const missing = stageQuestions.value.filter((q) => !isAnswered(q))
   if (!missing.length) return false
   highlight.value = true
@@ -151,9 +184,19 @@ function selectAgree(q, value) {
   const nextQ = list.slice(list.indexOf(q) + 1).find((x) => !isAnswered(x))
   if (nextQ) scrollToQuestion(nextQ)
 }
+function selectPicture(p, value) {
+  picAnswers[p.id] = value
+  if (allPicturesDone.value) {
+    submitError.value = ''
+    highlight.value = false
+  }
+  const list = pictures.value
+  const nextP = list.slice(list.indexOf(p) + 1).find((x) => !isPicDone(x))
+  if (nextP) setTimeout(() => scrollToPicture(nextP), 350)
+}
 async function finishProfile() {
   if (showMissing()) return
-  if (!allAnswered.value) {
+  if (!allAnswered.value || !allPicturesDone.value) {
     goStage(firstOpenStage.value)
     nextTick(showMissing)
     return
@@ -167,7 +210,7 @@ function saveDraft() {
     localStorage.setItem(
       DRAFT_KEY.value,
       JSON.stringify({
-        phase: phase.value, form, answers, current: current.value, stage: stage.value, startedAt: startedAt.value,
+        phase: phase.value, form, answers, pictures: picAnswers, current: current.value, stage: stage.value, startedAt: startedAt.value,
         clientId: clientId.value, done: done.value, phoneVerified: phoneVerified.value,
       }),
     )
@@ -183,6 +226,11 @@ function loadDraft() {
     Object.entries(d.answers || {}).forEach(([k, v]) => {
       // Profil testida faqat mavjud savollar va 0/1 javoblar tiklanadi
       if (!isProfile.value || (byId.value.has(String(k)) && (v === 0 || v === 1))) answers[k] = v
+    })
+    // Rasmli savollar: faqat mavjud rasm va to‘g‘ri variant tiklanadi
+    Object.entries(d.pictures || {}).forEach(([k, v]) => {
+      const p = pictures.value.find((x) => x.id === k)
+      if (p && Number.isInteger(v) && v >= 0 && v < p.options.length) picAnswers[k] = v
     })
     startedAt.value = d.startedAt || null
     clientId.value = d.clientId || clientId.value
@@ -208,7 +256,7 @@ function clearDraft() {
     /* */
   }
 }
-watch([phase, current, stage, () => ({ ...form }), () => ({ ...answers })], saveDraft, { deep: true })
+watch([phase, current, stage, () => ({ ...form }), () => ({ ...answers }), () => ({ ...picAnswers })], saveDraft, { deep: true })
 
 // Telefon tasdiqlanmagan bo‘lsa (masalan, eski qoralama yoki raqam o‘zgartirilgan) — savollar ochilmaydi,
 // javoblar saqlanib qoladi va foydalanuvchi ma'lumotlar formasiga qaytariladi
@@ -408,6 +456,10 @@ async function submit() {
     submitError.value = `Barcha savollarga javob bering (${total.value - answeredCount.value} ta javobsiz).`
     return
   }
+  if (!allPicturesDone.value) {
+    submitError.value = 'Barcha rasmlarga javob bering.'
+    return
+  }
   if (!validateForm()) {
     phase.value = 'intro'
     return
@@ -421,6 +473,7 @@ async function submit() {
       position: form.position,
       phone: normalizePhone(form.phone),
       answers: { ...answers },
+      ...(hasPictures.value ? { pictures: { ...picAnswers } } : {}),
       durationSec: startedAt.value ? Math.round((Date.now() - startedAt.value) / 1000) : null,
       clientId: clientId.value,
     })
@@ -445,6 +498,7 @@ async function submit() {
 function restart() {
   clearDraft()
   Object.keys(answers).forEach((k) => delete answers[k])
+  Object.keys(picAnswers).forEach((k) => delete picAnswers[k])
   Object.assign(form, { fullName: '', age: '', date: todayISO(), position: test.value?.positions?.length === 1 ? test.value.positions[0] : '', phone: '' })
   errors.value = {}
   current.value = 0
@@ -473,7 +527,10 @@ const steps = computed(() =>
   isProfile.value
     ? [
         { icon: UserRound, title: 'Ma’lumotlaringiz', text: 'F.I.Sh., yosh, lavozim va telefon' },
-        { icon: Layers, title: `${total.value} ta savol · ${stageCount.value} bosqich`, text: '«Qo‘shilmayman» yoki «Qo‘shilaman» — samimiy javob bering' },
+        { icon: Layers, title: `${total.value} ta savol · ${stages.value.length} bosqich`, text: '«Qo‘shilmayman» yoki «Qo‘shilaman» — samimiy javob bering' },
+        ...(hasPictures.value
+          ? [{ icon: ImageIcon, title: `${pictures.value.length} ta rasm`, text: 'Har bir rasmda birinchi ko‘rgan narsangizni tanlang' }]
+          : []),
         { icon: BadgeCheck, title: 'HR suhbati', text: 'Natijani HR ko‘rib chiqib siz bilan bog‘lanadi' },
       ]
     : [
@@ -504,7 +561,7 @@ const steps = computed(() =>
         <div v-if="phase === 'quiz' || phase === 'review'" class="flex items-center gap-2 text-xs font-medium sm:gap-3">
           <span class="hidden items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 tabular-nums text-slate-600 sm:inline-flex"><Clock class="h-3.5 w-3.5" />{{ elapsed }}</span>
           <span class="inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-2.5 py-1 tabular-nums text-primary-700">
-            <CheckCircle2 class="h-3.5 w-3.5" />{{ answeredCount }}/{{ total }}
+            <CheckCircle2 class="h-3.5 w-3.5" />{{ doneCount }}/{{ grandTotal }}
           </span>
         </div>
       </div>
@@ -690,13 +747,13 @@ const steps = computed(() =>
                   </div>
                 </div>
                 <div class="mt-4 space-y-3">
-                  <div v-for="(list, i) in stages" :key="i">
+                  <div v-for="i in stageCount" :key="i">
                     <div class="flex items-center justify-between text-xs">
-                      <span :class="['font-medium', i === stage ? 'text-primary-700' : 'text-slate-600']">{{ i + 1 }}-bosqich · {{ stages.slice(0, i).reduce((n, s) => n + s.length, 0) + 1 }}–{{ stages.slice(0, i + 1).reduce((n, s) => n + s.length, 0) }}</span>
-                      <span class="tabular-nums text-muted">{{ stageAnswered(i) }}/{{ list.length }}</span>
+                      <span :class="['font-medium', i - 1 === stage ? 'text-primary-700' : 'text-slate-600']">{{ i }}-bosqich · {{ stageRange(i - 1) }}</span>
+                      <span class="tabular-nums text-muted">{{ stageAnswered(i - 1) }}/{{ stageSize(i - 1) }}</span>
                     </div>
                     <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                      <div class="progress-fill h-full rounded-full" :style="{ width: `${(stageAnswered(i) / list.length) * 100}%` }" />
+                      <div class="progress-fill h-full rounded-full" :style="{ width: `${(stageAnswered(i - 1) / (stageSize(i - 1) || 1)) * 100}%` }" />
                     </div>
                   </div>
                 </div>
@@ -709,22 +766,22 @@ const steps = computed(() =>
           </aside>
 
           <div class="min-w-0">
-            <nav class="grid grid-cols-4 gap-2" aria-label="Test bosqichlari">
+            <nav class="grid gap-2" :style="{ gridTemplateColumns: `repeat(${stageCount}, minmax(0, 1fr))` }" aria-label="Test bosqichlari">
               <button
-                v-for="(list, i) in stages"
-                :key="i"
+                v-for="n in stageCount"
+                :key="n"
                 type="button"
-                :disabled="!stageReachable(i) || submitting"
-                :aria-current="i === stage ? 'step' : undefined"
-                :aria-label="`${i + 1}-bosqich: ${stageAnswered(i)}/${list.length} ta javob`"
-                :class="['stage-tab', stageDone(i) && 'is-done', i === stage && 'is-current']"
-                @click="goStage(i)"
+                :disabled="!stageReachable(n - 1) || submitting"
+                :aria-current="n - 1 === stage ? 'step' : undefined"
+                :aria-label="`${n}-bosqich${n - 1 === picStage ? ' (rasmlar)' : ''}: ${stageAnswered(n - 1)}/${stageSize(n - 1)} ta javob`"
+                :class="['stage-tab', stageDone(n - 1) && 'is-done', n - 1 === stage && 'is-current']"
+                @click="goStage(n - 1)"
               >
                 <span class="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide sm:text-xs">
-                  <span class="stage-dot"><Check v-if="stageDone(i) && i !== stage" class="h-3 w-3" stroke-width="3.5" /><template v-else>{{ i + 1 }}</template></span>
-                  <span class="hidden sm:inline">{{ i + 1 }}-bosqich</span>
+                  <span class="stage-dot"><Check v-if="stageDone(n - 1) && n - 1 !== stage" class="h-3 w-3" stroke-width="3.5" /><ImageIcon v-else-if="n - 1 === picStage" class="h-3 w-3" /><template v-else>{{ n }}</template></span>
+                  <span class="hidden sm:inline">{{ n - 1 === picStage ? 'Rasmlar' : `${n}-bosqich` }}</span>
                 </span>
-                <span class="mt-1 block text-[11px] tabular-nums opacity-80">{{ stageAnswered(i) }}/{{ list.length }}</span>
+                <span class="mt-1 block text-[11px] tabular-nums opacity-80">{{ stageAnswered(n - 1) }}/{{ stageSize(n - 1) }}</span>
               </button>
             </nav>
 
@@ -732,13 +789,28 @@ const steps = computed(() =>
               <div class="flex flex-wrap items-end justify-between gap-2 border-b border-line pb-4">
                 <div>
                   <p class="text-xs font-semibold uppercase tracking-wider text-primary-600">{{ stage + 1 }}-bosqich / {{ stageCount }}</p>
-                  <h2 class="mt-1 text-xl font-semibold tracking-tight">{{ stageOffset + 1 }}–{{ stageOffset + stageQuestions.length }}-savollar</h2>
+                  <h2 v-if="isPictureStage" class="mt-1 text-xl font-semibold tracking-tight">Rasmli savollar</h2>
+                  <h2 v-else class="mt-1 text-xl font-semibold tracking-tight">{{ stageOffset + 1 }}–{{ stageOffset + stageQuestions.length }}-savollar</h2>
                 </div>
-                <p class="text-xs text-muted">Har bir fikrga: «{{ agreeOptions[0] }}» yoki «{{ agreeOptions[1] }}»</p>
+                <p v-if="isPictureStage" class="text-xs text-muted">Har bir rasmga qarang va birinchi bo‘lib ko‘rgan narsangizni tanlang</p>
+                <p v-else class="text-xs text-muted">Har bir fikrga: «{{ agreeOptions[0] }}» yoki «{{ agreeOptions[1] }}»</p>
               </div>
 
               <Transition :name="direction > 0 ? 'q-next' : 'q-prev'" mode="out-in">
-                <ol :key="stage" class="divide-y divide-line">
+                <!-- Rasmli savollar (oxirgi bosqich) -->
+                <ol v-if="isPictureStage" key="pictures" class="divide-y divide-line">
+                  <li v-for="(p, k) in pictures" :id="`pic-${p.id}`" :key="p.id" :class="['q-row scroll-mt-28 !py-6', highlight && !isPicDone(p) && 'is-missing']">
+                    <PictureQuestion
+                      :picture="p"
+                      :src="assetUrl(p.image)"
+                      :number="k + 1"
+                      :model-value="picAnswers[p.id] ?? null"
+                      :invalid="highlight && !isPicDone(p)"
+                      @update:model-value="selectPicture(p, $event)"
+                    />
+                  </li>
+                </ol>
+                <ol v-else :key="stage" class="divide-y divide-line">
                   <li v-for="(q, k) in stageQuestions" :id="`q-${q.id}`" :key="q.id" :class="['q-row scroll-mt-28', highlight && !isAnswered(q) && 'is-missing']">
                     <div class="flex items-start gap-3">
                       <span :class="['q-badge', isAnswered(q) && 'is-done']" aria-hidden="true">{{ stageOffset + k + 1 }}</span>
@@ -765,7 +837,7 @@ const steps = computed(() =>
                 <button type="button" class="btn-ghost" :disabled="submitting" @click="prevStage">
                   <ArrowLeft class="h-4 w-4" /> {{ stage === 0 ? 'Ma’lumotlar' : 'Orqaga' }}
                 </button>
-                <span class="hidden text-xs tabular-nums text-muted sm:block">{{ stageAnswered(stage) }}/{{ stageQuestions.length }} ta javob · {{ progress }}%</span>
+                <span class="hidden text-xs tabular-nums text-muted sm:block">{{ stageAnswered(stage) }}/{{ stageSize(stage) }} ta javob · {{ progress }}%</span>
                 <button v-if="isLastStage" type="button" class="btn-primary btn-finish" :disabled="submitting" @click="finishProfile">
                   <Loader2 v-if="submitting" class="h-4 w-4 animate-spin" />
                   <Flag v-else class="h-4 w-4" />

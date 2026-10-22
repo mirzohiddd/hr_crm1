@@ -1,16 +1,19 @@
 <script setup>
 import { computed, ref } from 'vue'
 import {
-  AlertTriangle, Briefcase, CheckCircle2, ClipboardCopy, Download, Gavel, Info, ListChecks, MessageCircleQuestion,
-  ShieldAlert, ShieldCheck, Sparkles, Sprout, ThumbsDown, ThumbsUp, TrendingDown, TrendingUp, UsersRound,
+  AlertTriangle, Briefcase, CheckCircle2, ClipboardCopy, Download, Gavel, Image as ImageIcon, Info, ListChecks, MessageCircleQuestion,
+  ShieldAlert, ShieldCheck, Sparkles, Sprout, ThumbsDown, ThumbsUp, TrendingDown, TrendingUp, UsersRound, X,
 } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
 import { useToast } from '@/composables/useToast'
+import { landingAssetUrl } from '@/api/landing'
 
 /**
  * «Ishdagi shaxsiyat 360» (landing /test/sotuv, format=persona) — HR uchun batafsil hisobot.
- * Barcha raqamlar backendda xodimning haqiqiy javoblaridan hisoblangan (backend/app/persona_test.py);
- * bu komponent faqat ko‘rsatadi. "Nusxalash" — backend tuzgan matn (reportText).
+ * Barcha ko‘rsatkichlar backendda xodimning haqiqiy javoblaridan hisoblangan (backend/app/persona_test.py);
+ * bu komponent faqat ko‘rsatadi. Foiz ko‘rsatilmaydi — har bir xususiyat, yo‘nalish va guruh uchun
+ * daraja va tavsif (backend: persona_test.describe). Rasmli savollar — tanlangan javob va uning tavsifi.
+ * "Nusxalash" — backend tuzgan matn (reportText), u ham foizsiz.
  */
 const props = defineProps({ detail: { type: Object, required: true } })
 const toast = useToast()
@@ -19,7 +22,21 @@ const r = computed(() => props.detail.report || {})
 const rel = computed(() => r.value.reliability || {})
 const traits = computed(() => r.value.traits || [])
 const directions = computed(() => r.value.directions || [])
+const pictures = computed(() => r.value.pictures || [])
 const items = computed(() => props.detail.items || [])
+const zoomed = ref(null)
+
+// Daraja: rang (good / mid / bad) va 3 bo‘lakli ko‘rsatkich (foiz o‘rniga)
+const TONE = {
+  good: { badge: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20', seg: 'bg-emerald-500', text: 'text-emerald-700' },
+  mid: { badge: 'bg-amber-50 text-amber-700 ring-amber-600/20', seg: 'bg-amber-500', text: 'text-amber-700' },
+  bad: { badge: 'bg-red-50 text-red-700 ring-red-600/20', seg: 'bg-red-500', text: 'text-red-700' },
+}
+const SEGMENTS = { high: 3, mid: 2, low: 1 }
+const toneOf = (x) => TONE[x?.tone] || TONE.mid
+const capital = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '')
+const groupTone = (level, goodHigh) => (level === 'mid' ? TONE.mid : (level === 'high') === goodHigh ? TONE.good : TONE.bad)
+const FIT_TONE = { 'Juda mos': 'bg-emerald-50 text-emerald-700', Mos: 'bg-primary-50 text-primary-700', 'Qisman mos': 'bg-amber-50 text-amber-700', 'Kam mos': 'bg-slate-100 text-slate-600' }
 
 // Yo‘nalish ranglari: yashil/ko‘k — yuqori bo‘lgani yaxshi, sariq/qizil — past bo‘lgani yaxshi
 const COLORS = {
@@ -54,7 +71,10 @@ const angle = (i, n) => -Math.PI / 2 + (2 * Math.PI * i) / n
 const pt = (i, n, k) => [C + Math.cos(angle(i, n)) * RADIUS * k, C + Math.sin(angle(i, n)) * RADIUS * k]
 const rings = [1 / 3, 2 / 3, 1]
 const ringPath = (k) => traits.value.map((_, i) => pt(i, traits.value.length, k).join(',')).join(' ')
-const shape = computed(() => traits.value.map((t, i) => pt(i, traits.value.length, Math.max(t.percent, 4) / 100).join(',')).join(' '))
+// Radar shakli darajadan: kam — 1/3, qisman — 2/3, yaqqol — to‘liq (raqam ko‘rsatilmaydi)
+const LEVEL_K = { low: 1 / 3, mid: 2 / 3, high: 1 }
+const radiusOf = (t) => LEVEL_K[t.level] ?? Math.max(t.percent || 0, 4) / 100
+const shape = computed(() => traits.value.map((t, i) => pt(i, traits.value.length, radiusOf(t)).join(',')).join(' '))
 const labelPos = (i) => {
   const n = traits.value.length
   const [x, y] = pt(i, n, 1.12)
@@ -124,12 +144,14 @@ function downloadReport() {
         <p class="mt-1 text-sm leading-relaxed text-slate-600">{{ r.profile?.text }}</p>
         <div class="mt-4 grid gap-3 sm:grid-cols-3">
           <div class="tile">
-            <p class="tile-value text-emerald-600">{{ r.positive }}%</p>
-            <p class="tile-label">Yuqori samaradorlik xususiyatlari</p>
+            <p class="tile-label !mt-0">Yuqori samaradorlik xususiyatlari</p>
+            <p :class="['tile-value', groupTone(r.positiveLevel, true).text]">{{ capital(r.positiveWord) }}</p>
+            <p class="mt-1 text-xs leading-snug text-slate-600">{{ r.positiveText }}</p>
           </div>
           <div class="tile">
-            <p class="tile-value text-red-600">{{ r.negative }}%</p>
-            <p class="tile-label">To‘sqinlik qiluvchi xususiyatlar</p>
+            <p class="tile-label !mt-0">To‘sqinlik qiluvchi xususiyatlar</p>
+            <p :class="['tile-value', groupTone(r.negativeLevel, false).text]">{{ capital(r.negativeWord) }}</p>
+            <p class="mt-1 text-xs leading-snug text-slate-600">{{ r.negativeText }}</p>
           </div>
           <div :class="['tile border', relView.box]">
             <p :class="['tile-value flex items-center gap-1.5', relView.text]"><component :is="relView.icon" class="h-5 w-5" />{{ relView.label }}</p>
@@ -151,24 +173,24 @@ function downloadReport() {
         </ul>
       </div>
       <div class="mx-auto mt-2 max-w-[560px]">
-        <svg :viewBox="`-130 -10 ${SIZE + 260} ${SIZE + 20}`" class="h-auto w-full" role="img" :aria-label="`Shaxsiyat profili: ${traits.map((t) => `${t.title} ${t.percent}%`).join(', ')}`">
+        <svg :viewBox="`-130 -10 ${SIZE + 260} ${SIZE + 20}`" class="h-auto w-full" role="img" :aria-label="`Shaxsiyat profili: ${traits.map((t) => `${t.title} — ${t.levelWord}`).join(', ')}`">
           <polygon v-for="k in rings" :key="k" :points="ringPath(k)" fill="none" stroke="#e2e8f0" stroke-width="1" />
           <line v-for="(t, i) in traits" :key="`ax-${t.id}`" :x1="C" :y1="C" :x2="pt(i, traits.length, 1)[0]" :y2="pt(i, traits.length, 1)[1]" stroke="#e2e8f0" stroke-width="1" />
           <polygon :points="shape" fill="rgba(37, 99, 235, 0.12)" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" />
           <g v-for="(t, i) in traits" :key="`pt-${t.id}`" @mouseenter="hover = t.id" @mouseleave="hover = null">
             <circle :cx="pt(i, traits.length, 1)[0]" :cy="pt(i, traits.length, 1)[1]" r="16" fill="transparent" />
-            <circle :cx="pt(i, traits.length, Math.max(t.percent, 4) / 100)[0]" :cy="pt(i, traits.length, Math.max(t.percent, 4) / 100)[1]" :r="hover === t.id ? 6 : 4.5" :fill="colorOf(t).hex" stroke="#fff" stroke-width="2">
-              <title>{{ t.title }}: {{ t.percent }}%</title>
+            <circle :cx="pt(i, traits.length, radiusOf(t))[0]" :cy="pt(i, traits.length, radiusOf(t))[1]" :r="hover === t.id ? 6 : 4.5" :fill="colorOf(t).hex" stroke="#fff" stroke-width="2">
+              <title>{{ t.title }}: {{ t.levelLabel }}</title>
             </circle>
             <text :x="labelPos(i).x" :y="labelPos(i).y - 7" :text-anchor="labelPos(i).anchor" class="text-[13px] font-semibold" :fill="colorOf(t).hex">
               {{ t.title }}
-              <tspan :x="labelPos(i).x" dy="16" class="fill-slate-500 text-[12px] font-semibold tabular-nums">{{ t.percent }}%</tspan>
+              <tspan :x="labelPos(i).x" dy="16" class="fill-slate-500 text-[12px] font-semibold">{{ t.levelWord }}</tspan>
             </text>
           </g>
         </svg>
       </div>
       <p class="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-muted">
-        <Info class="mt-0.5 h-3.5 w-3.5 shrink-0" /> Qaysi xususiyat markazdan uzoqroq bo‘lsa, u insonda kuchliroq namoyon bo‘ladi. Yashil va ko‘k yo‘nalishlarda yuqori, sariq va qizil yo‘nalishlarda past ko‘rsatkich yaxshi.
+        <Info class="mt-0.5 h-3.5 w-3.5 shrink-0" /> Qaysi xususiyat markazdan uzoqroq bo‘lsa, u insonda kuchliroq namoyon bo‘ladi (ichki halqa — kam, o‘rta — qisman, tashqi — yaqqol). Yashil va ko‘k yo‘nalishlarda kuchli, sariq va qizil yo‘nalishlarda kam namoyon bo‘lgani yaxshi.
       </p>
     </section>
 
@@ -177,28 +199,59 @@ function downloadReport() {
       <h3 class="sec-title">{{ directions.length }} ta yo‘nalish</h3>
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         <div v-for="d in directions" :key="d.id" :class="['rounded-2xl p-4 ring-1 ring-inset', dirColor(d).soft, dirColor(d).ring]">
-          <div class="flex items-baseline justify-between gap-2">
+          <div class="flex items-center justify-between gap-2">
             <p :class="['text-xs font-semibold uppercase tracking-wider', dirColor(d).text]">{{ d.title }}</p>
-            <p class="text-2xl font-bold tabular-nums text-ink">{{ d.percent }}%</p>
+            <span :class="['shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset', toneOf(d).badge]">{{ capital(d.levelWord) }}</span>
           </div>
-          <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-white"><div :class="['h-full rounded-full', dirColor(d).bar]" :style="{ width: `${d.percent}%` }" /></div>
-          <p class="mt-2 text-xs leading-relaxed text-slate-600">{{ d.description }}</p>
+          <p class="mt-2 text-[13px] leading-relaxed text-ink">{{ d.levelText }}</p>
+          <p v-if="d.levelText !== d.description" class="mt-1 text-xs leading-relaxed text-slate-500">{{ d.description }}</p>
         </div>
       </div>
     </section>
 
-    <!-- 13 ta xususiyat -->
+    <!-- 13 ta xususiyat: foiz o‘rniga tavsif -->
     <section class="rounded-2xl border border-line p-4 sm:p-5">
-      <h3 class="sec-title">{{ traits.length }} ta xususiyat</h3>
-      <ul class="mt-3 grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
-        <li v-for="t in traits" :key="t.id" :title="t.description">
-          <div class="flex items-baseline justify-between gap-2 text-sm">
-            <span class="inline-flex items-center gap-1.5 text-ink"><span class="h-2 w-2 rounded-full" :style="{ background: colorOf(t).hex }" />{{ t.title }}</span>
-            <b class="tabular-nums text-ink">{{ t.percent }}%</b>
+      <h3 class="sec-title">{{ traits.length }} ta xususiyat tavsifi</h3>
+      <ul class="mt-3 grid gap-3 lg:grid-cols-2">
+        <li v-for="(t, i) in traits" :key="t.id" class="rounded-xl bg-slate-50 px-3.5 py-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="inline-flex items-center gap-2 text-sm font-semibold text-ink">
+              <span class="grid h-5 w-5 place-items-center rounded-md text-[10px] font-bold text-white" :style="{ background: colorOf(t).hex }">{{ i + 1 }}</span>{{ t.title }}
+            </span>
+            <span :class="['inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset', toneOf(t).badge]">
+              <span class="flex gap-0.5" aria-hidden="true"><span v-for="n in 3" :key="n" :class="['h-1.5 w-2.5 rounded-full', n <= (SEGMENTS[t.level] || 0) ? toneOf(t).seg : 'bg-white']" /></span>
+              {{ t.levelLabel }}
+            </span>
           </div>
-          <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><div :class="['h-full rounded-full', colorOf(t).bar]" :style="{ width: `${t.percent}%` }" /></div>
+          <p class="mt-1.5 text-[13px] leading-relaxed text-slate-700">{{ t.levelText }}</p>
+          <p v-if="t.description" class="mt-1 text-[11px] text-muted">{{ t.group === 'negative' ? 'To‘sqinlik qiluvchi' : 'Samaradorlik' }} xususiyati: {{ t.description }}</p>
         </li>
       </ul>
+    </section>
+
+    <!-- Rasmli savollar -->
+    <section v-if="pictures.length" class="rounded-2xl border border-line p-4 sm:p-5">
+      <h3 class="sec-title"><ImageIcon class="h-4 w-4 text-primary-600" /> Rasmli savollar: birinchi ko‘rgani</h3>
+      <ul class="mt-3 grid gap-4 lg:grid-cols-3">
+        <li v-for="p in pictures" :key="p.id" class="flex flex-col overflow-hidden rounded-xl border border-line">
+          <button type="button" class="grid aspect-[4/3] place-items-center bg-slate-50 p-2" :aria-label="`${p.title}: kattalashtirish`" @click="zoomed = p">
+            <img :src="landingAssetUrl(p.image)" :alt="p.title" class="h-full w-full object-contain" loading="lazy" />
+          </button>
+          <div class="flex flex-1 flex-col p-3">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-muted">{{ p.title }}</p>
+            <p class="mt-1 text-sm font-semibold text-primary-700">«{{ p.answerText }}»</p>
+            <p class="mt-1 text-[13px] leading-relaxed text-slate-700">{{ p.description }}</p>
+            <p class="mt-auto pt-2 text-[11px] text-muted">Variantlar: {{ (p.options || []).join(' · ') }}</p>
+          </div>
+        </li>
+      </ul>
+      <p v-if="r.picturesNote" class="mt-3 flex items-start gap-1.5 text-xs leading-relaxed text-muted"><Info class="mt-0.5 h-3.5 w-3.5 shrink-0" /> {{ r.picturesNote }}</p>
+      <Teleport to="body">
+        <div v-if="zoomed" class="fixed inset-0 z-[100] grid place-items-center bg-slate-950/85 p-4" role="dialog" :aria-label="zoomed.title" @click.self="zoomed = null">
+          <img :src="landingAssetUrl(zoomed.image)" :alt="zoomed.title" class="max-h-[88vh] max-w-full rounded-2xl bg-white object-contain" />
+          <button type="button" class="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-white text-ink shadow-lg" aria-label="Yopish" @click="zoomed = null"><X class="h-5 w-5" /></button>
+        </div>
+      </Teleport>
     </section>
 
     <!-- Kuchli tomonlari / Rivojlanish kerak -->
@@ -207,7 +260,7 @@ function downloadReport() {
         <h3 class="sec-title"><TrendingUp class="h-4 w-4 text-emerald-600" /> Kuchli tomonlari</h3>
         <ul v-if="r.strengths?.length" class="mt-3 space-y-2.5">
           <li v-for="s in r.strengths" :key="s.id" class="text-sm leading-snug">
-            <p class="font-medium text-ink">{{ s.title }} <span class="tabular-nums text-emerald-700">· {{ s.percent }}%</span></p>
+            <p class="font-medium text-ink">{{ s.title }} <span v-if="s.levelLabel" class="text-xs font-normal text-emerald-700">· {{ s.levelLabel.toLowerCase() }}</span></p>
             <p class="mt-0.5 text-slate-600">{{ s.text }}</p>
           </li>
         </ul>
@@ -217,7 +270,7 @@ function downloadReport() {
         <h3 class="sec-title"><TrendingDown class="h-4 w-4 text-amber-600" /> Rivojlanish kerak</h3>
         <ul v-if="r.development?.length" class="mt-3 space-y-2.5">
           <li v-for="s in r.development" :key="s.id" class="text-sm leading-snug">
-            <p class="font-medium text-ink">{{ s.title }} <span class="tabular-nums text-amber-700">· {{ s.percent }}%</span></p>
+            <p class="font-medium text-ink">{{ s.title }} <span v-if="s.levelLabel" class="text-xs font-normal text-amber-700">· {{ s.levelLabel.toLowerCase() }}</span></p>
             <p class="mt-0.5 text-slate-600">{{ s.text }}</p>
           </li>
         </ul>
@@ -259,7 +312,7 @@ function downloadReport() {
           <li v-for="(p, i) in (r.roles || []).slice(0, 3)" :key="p.name" class="flex items-center gap-3">
             <span class="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary-600 text-xs font-bold text-white">{{ i + 1 }}</span>
             <span class="min-w-0 flex-1 truncate text-sm font-medium text-ink">{{ p.name }}</span>
-            <span class="text-sm font-bold tabular-nums text-primary-700">{{ p.percent }}%</span>
+            <span :class="['shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold', FIT_TONE[p.fit] || FIT_TONE.Mos]">{{ p.fit }}</span>
           </li>
         </ol>
       </div>

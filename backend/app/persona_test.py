@@ -22,9 +22,19 @@ Hisoblash (hammasi haqiqiy javoblardan, tasodifiy son yo‘q):
 7. Profil, HR xulosasi, kuchli/zaif tomonlar, xulq-atvor naqshlari, suhbat savollari va rivojlanish tavsiyalari
    shu foizlardan qoidalar bo‘yicha tuziladi (quyida).
 
+8. Rasmli savollar ("pictures", 3 ta rasm × 4 variant) — oxirgi bosqichda. Nomzod birinchi ko‘rgan narsani tanlaydi;
+   HR hisobotiga tanlangan variant va uning tavsifi (description) yoziladi. Asosiy ko‘rsatkichlarga qo‘shilmaydi.
+9. CRM va «Natija matni»da foiz ko‘rsatilmaydi: har bir xususiyat, yo‘nalish va guruh uchun daraja
+   (yuqori / o‘rtacha / past) va tavsif chiqadi (sotuv.json → traits[].levelTexts, directions[].levelTexts).
+   Foizlar faqat ichki hisoblash uchun saqlanadi. Tavsiflar natija o‘qilganda joriy JSON dan qo‘shiladi (describe),
+   shuning uchun avval topshirilgan natijalar ham tavsif bilan ko‘rinadi.
+
 Bu test klinik yoki psixologik tashxis emas — HR suhbati uchun yo‘naltiruvchi ma’lumot.
 """
 from __future__ import annotations
+
+import re
+from pathlib import Path
 
 AGREE, DISAGREE = 1, 0
 OPTIONS = ["Qo‘shilmayman", "Qo‘shilaman"]
@@ -131,7 +141,198 @@ def validate_config(data: dict) -> dict:
             raise ValueError(f"roles: {r.get('name')} — name va to‘g‘ri weights kerak")
         if any(not isinstance(v, (int, float)) or v < 0 for v in w.values()) or sum(w.values()) <= 0:
             raise ValueError(f"roles: {r['name']} — og‘irliklar musbat son bo‘lishi kerak")
+
+    pic_ids: set[str] = set()
+    for p in data.get("pictures") or []:
+        pid = p.get("id")
+        if not isinstance(pid, str) or not PICTURE_ID_RE.fullmatch(pid) or pid in pic_ids:
+            raise ValueError(f"pictures: id noto‘g‘ri yoki takrorlangan ({pid})")
+        pic_ids.add(pid)
+        img = p.get("image")
+        if not isinstance(img, str) or not IMAGE_NAME_RE.fullmatch(img):
+            raise ValueError(f"pictures: {pid} — image fayl nomi noto‘g‘ri ({img})")
+        if not (IMAGES_DIR / img).is_file():
+            raise ValueError(f"pictures: {pid} — rasm fayli topilmadi: landing_tests/images/{img}")
+        opts = p.get("options") or []
+        if not 2 <= len(opts) <= 6 or any(not isinstance(o, dict) or not o.get("text") or not o.get("description") for o in opts):
+            raise ValueError(f"pictures: {pid} — 2–6 ta variant kerak, har birida text va description")
     return data
+
+
+# ---------------------------------------------------------------------------
+# Rasmli savollar
+# ---------------------------------------------------------------------------
+IMAGES_DIR = Path(__file__).resolve().parent / "landing_tests" / "images"
+IMAGE_NAME_RE = re.compile(r"[A-Za-z0-9_-]{1,60}\.(jpg|jpeg|png|webp)")
+PICTURE_ID_RE = re.compile(r"[a-z0-9-]{1,40}")
+PICTURES_NOTE = (
+    "Rasmli savollar — qo‘shimcha kuzatuv: birinchi ko‘rilgan narsa diqqat va idrok uslubi haqida taxminiy ma’lumot beradi. "
+    "Bu ilmiy tashxis emas va asosiy ko‘rsatkichlarga qo‘shilmaydi — suhbatda tasdiqlang."
+)
+
+
+def image_url(slug: str, image: str) -> str:
+    """API ichidagi manzil (frontend o‘z API bazasini oldiga qo‘shadi)."""
+    return f"/public/tests/{slug}/images/{image}"
+
+
+def validate_pictures(test: dict, raw: dict | None) -> dict[str, int]:
+    """Barcha rasmlarga javob berilganini tekshiradi: {rasm_id: variant_indeksi}. Xato bo‘lsa ValueError."""
+    pictures = test.get("pictures") or []
+    if not pictures:
+        return {}
+    raw = raw or {}
+    clean, missing = {}, []
+    for p in pictures:
+        v = raw.get(p["id"])
+        if v is None or isinstance(v, bool):
+            missing.append(p["title"])
+            continue
+        try:
+            v = int(v)
+        except (TypeError, ValueError):
+            raise ValueError(f"{p['title']}: javob noto‘g‘ri")
+        if not 0 <= v < len(p["options"]):
+            raise ValueError(f"{p['title']}: bunday variant yo‘q")
+        clean[p["id"]] = v
+    if missing:
+        raise ValueError(f"Rasmli savollarga javob bering: {', '.join(missing)}")
+    if set(raw) - {p["id"] for p in pictures}:
+        raise ValueError("Noma’lum rasm yuborildi")
+    return clean
+
+
+def grade_pictures(test: dict, answers: dict[str, int]) -> list[dict]:
+    out = []
+    for p in test.get("pictures") or []:
+        if p["id"] not in answers:
+            continue
+        a = answers[p["id"]]
+        out.append({
+            "id": p["id"], "title": p["title"], "question": p["question"],
+            "image": image_url(test["slug"], p["image"]),
+            "answer": a, "answerText": p["options"][a]["text"], "description": p["options"][a]["description"],
+            "options": [o["text"] for o in p["options"]],
+        })
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Foiz o‘rniga daraja va tavsif
+# ---------------------------------------------------------------------------
+LVL_HIGH, LVL_MID, LVL_LOW = "high", "mid", "low"
+LEVEL_WORD = {LVL_HIGH: "yuqori", LVL_MID: "o‘rtacha", LVL_LOW: "past"}
+TRAIT_LEVEL_LABEL = {LVL_HIGH: "Yaqqol namoyon bo‘ladi", LVL_MID: "Qisman namoyon bo‘ladi", LVL_LOW: "Kam namoyon bo‘ladi"}
+
+
+def trait_level(percent: int) -> str:
+    """Xususiyat (3 savol): 3/3 — yuqori, 2/3 — o‘rtacha, 0–1/3 — past."""
+    if percent >= 84:
+        return LVL_HIGH
+    if percent >= 50:
+        return LVL_MID
+    return LVL_LOW
+
+
+def direction_level(percent: int) -> str:
+    if percent >= 67:
+        return LVL_HIGH
+    if percent >= 34:
+        return LVL_MID
+    return LVL_LOW
+
+
+def positive_level(percent: int) -> str:
+    return LVL_HIGH if percent >= 70 else LVL_MID if percent >= 45 else LVL_LOW
+
+
+def negative_level(percent: int) -> str:
+    return LVL_HIGH if percent >= 60 else LVL_MID if percent >= 35 else LVL_LOW
+
+
+POSITIVE_TEXT = {
+    LVL_HIGH: "Ish uchun muhim xususiyatlar (mas’uliyat, tashabbus, hamkorlik, maqsadga intilish) yaqqol namoyon bo‘ladi.",
+    LVL_MID: "Ish uchun muhim xususiyatlar o‘rtacha darajada: ayrimlari kuchli, ayrimlari rivojlantirilishi kerak.",
+    LVL_LOW: "Ish uchun muhim xususiyatlar hali yetarli namoyon bo‘lmagan — yo‘l-yo‘riq va murabbiylik kerak.",
+}
+NEGATIVE_TEXT = {
+    LVL_HIGH: "To‘sqinlik qiluvchi xususiyatlar (bosimga sezgirlik, qattiqqo‘llik, nazorat, qaramlik) kuchli — ishga xalaqit berishi mumkin.",
+    LVL_MID: "To‘sqinlik qiluvchi xususiyatlar o‘rtacha: ayrim vaziyatlarda ishga xalaqit berishi mumkin.",
+    LVL_LOW: "To‘sqinlik qiluvchi xususiyatlar past — bu yaxshi belgi.",
+}
+
+
+def tone(group_good_high: bool, level: str) -> str:
+    """Rang uchun: good / mid / bad (yaxshi yo‘nalishda yuqori — good; to‘sqinlikda yuqori — bad)."""
+    if level == LVL_MID:
+        return "mid"
+    return "good" if (level == LVL_HIGH) == group_good_high else "bad"
+
+
+def role_fit(percent: int) -> str:
+    if percent >= 70:
+        return "Juda mos"
+    if percent >= 55:
+        return "Mos"
+    if percent >= 40:
+        return "Qisman mos"
+    return "Kam mos"
+
+
+def _trait_text(cfg: dict, row: dict, level: str) -> str:
+    texts = cfg.get("levelTexts") or {}
+    if texts.get(level):
+        return texts[level]
+    # levelTexts bo‘lmasa — eski matnlardan
+    if row.get("group") == "negative":
+        return cfg.get("riskText", "") if level != LVL_LOW else "Bu xususiyat deyarli namoyon bo‘lmaydi."
+    return cfg.get("strengthText", "") if level != LVL_LOW else cfg.get("lowText", "")
+
+
+def describe(report: dict, test: dict | None = None) -> dict:
+    """
+    Hisobotga foiz o‘rniga daraja va tavsiflarni qo‘shadi (joyida o‘zgartiradi va qaytaradi).
+    test — joriy savolnoma (matnlar shu yerdan); None bo‘lsa — hisobotdagi mavjud matnlar ishlatiladi.
+    """
+    traits_cfg = {t["id"]: t for t in (test or {}).get("traits") or []}
+    dirs_cfg = {d["id"]: d for d in (test or {}).get("directions") or []}
+    for t in report.get("traits") or []:
+        lvl = trait_level(int(t.get("percent") or 0))
+        t["level"] = lvl
+        t["levelWord"] = LEVEL_WORD[lvl]
+        t["levelLabel"] = TRAIT_LEVEL_LABEL[lvl]
+        t["tone"] = tone(t.get("group") != "negative", lvl)
+        t["levelText"] = _trait_text(traits_cfg.get(t["id"], {}), t, lvl)
+    for d in report.get("directions") or []:
+        lvl = direction_level(int(d.get("percent") or 0))
+        good_high = d.get("goodHigh", True)
+        d["level"] = lvl
+        d["levelWord"] = LEVEL_WORD[lvl]
+        d["tone"] = tone(good_high, lvl)
+        d["levelText"] = ((dirs_cfg.get(d["id"]) or {}).get("levelTexts") or {}).get(lvl) or d.get("description", "")
+    pos = positive_level(int(report.get("positive") or 0))
+    neg = negative_level(int(report.get("negative") or 0))
+    report["positiveLevel"], report["positiveWord"], report["positiveText"] = pos, LEVEL_WORD[pos], POSITIVE_TEXT[pos]
+    report["negativeLevel"], report["negativeWord"], report["negativeText"] = neg, LEVEL_WORD[neg], NEGATIVE_TEXT[neg]
+    by_id = {t["id"]: t for t in report.get("traits") or []}
+    for key in ("strengths", "development"):
+        for s in report.get(key) or []:
+            t = by_id.get(s.get("id"))
+            if t:
+                s["levelLabel"] = t["levelLabel"]
+    for r in report.get("roles") or []:
+        r["fit"] = role_fit(int(r.get("percent") or 0))
+    if report.get("pictures"):
+        report["picturesNote"] = (test or {}).get("picturesNote") or PICTURES_NOTE
+    # Ishonchlilik izohlaridagi foizlar (eski natijalar) — so‘z bilan
+    rel = report.get("reliability") or {}
+    if rel.get("issues"):
+        rel["issues"] = [_strip_percent(x) for x in rel["issues"]]
+    return report
+
+
+def _strip_percent(text: str) -> str:
+    return re.sub(r"Savollarning \d+% iga", "Deyarli barcha savollarga", str(text))
 
 
 def stages(test: dict) -> list[dict]:
@@ -191,7 +392,8 @@ PATTERNS = [
 # ---------------------------------------------------------------------------
 # Hisoblash
 # ---------------------------------------------------------------------------
-def grade(test: dict, answers: dict[int, int], duration_sec: int | None = None, full_name: str = "") -> dict:
+def grade(test: dict, answers: dict[int, int], duration_sec: int | None = None, full_name: str = "",
+          pictures: dict[str, int] | None = None) -> dict:
     traits = test["traits"]
     t_by_id = {t["id"]: t for t in traits}
     points = {t["id"]: 0 for t in traits}
@@ -235,7 +437,7 @@ def grade(test: dict, answers: dict[int, int], duration_sec: int | None = None, 
     ratio = agree / total_core if total_core else 0.5
     if ratio >= 0.9 or ratio <= 0.1:
         word = "«Qo‘shilaman»" if ratio >= 0.9 else "«Qo‘shilmayman»"
-        issues.append((REL_LOW, f"Savollarning {round(ratio * 100)}% iga {word} deb javob berilgan — bir xil javob belgilangan."))
+        issues.append((REL_LOW, f"Deyarli barcha savollarga {word} deb javob berilgan — bir xil javob belgilangan."))
     sec = (duration_sec / len(items)) if duration_sec and items else None
     if sec is not None and sec < 1.5:
         issues.append((REL_LOW, f"Test juda tez topshirilgan ({duration_sec} soniya) — savollar o‘qilmagan bo‘lishi mumkin."))
@@ -340,8 +542,10 @@ def grade(test: dict, answers: dict[int, int], duration_sec: int | None = None, 
         "roles": roles,
         "interview": interview,
         "recommendations": development,
+        "pictures": grade_pictures(test, pictures or {}),
         "disclaimer": DISCLAIMER,
     }
+    describe(report, test)
     return {
         "format": FORMAT,
         "items": items,
@@ -352,6 +556,7 @@ def grade(test: dict, answers: dict[int, int], duration_sec: int | None = None, 
         "status": decision[0],
         "passed": decision[0] == DEC_HIRE,
         "scores": scores,
+        "pictureAnswers": dict(pictures or {}),
         "profileTitle": profile[0],
         "reliabilityLevel": level,
         "positive": positive, "negative": negative,
@@ -363,8 +568,13 @@ def grade(test: dict, answers: dict[int, int], duration_sec: int | None = None, 
 
 
 def report_text(result: dict) -> str:
-    """Nusxalash uchun matn (HR bo‘limiga Telegram orqali yuborish)."""
+    """
+    Nusxalash uchun matn (HR bo‘limiga Telegram orqali yuborish). Foiz yo‘q — har bir ko‘rsatkich daraja va tavsif bilan.
+    result["report"] oldindan describe() dan o‘tgan bo‘lishi kerak (routers/landing.py → hr_result).
+    """
     r = result.get("report") or {}
+    if r.get("traits") and "levelText" not in r["traits"][0]:
+        describe(r)
     sub = str(result.get("submittedAt") or "")
     date = f"{sub[8:10]}.{sub[5:7]}.{sub[:4]}" if sub else ""
     lines = [
@@ -376,16 +586,39 @@ def report_text(result: dict) -> str:
         lines.append(f"Lavozim (tanlangan): {result['position']}")
     if result.get("phone"):
         lines.append(f"Telefon: {result['phone']}")
+    profile = r.get("profile") or {}
     lines += [
-        f"Profil: {(r.get('profile') or {}).get('title', '')}",
-        f"Yuqori samaradorlik: {r.get('positive')}%, to‘sqinlik qiluvchi: {r.get('negative')}%",
-        "Yo‘nalishlar: " + ", ".join(f"{d['title']} {d['percent']}%" for d in r.get("directions") or []),
-        "Xususiyatlar: " + ", ".join(f"{t['title']} {t['percent']}%" for t in r.get("traits") or []),
+        "",
+        f"PROFIL: {profile.get('title', '')}",
+        f"  {profile.get('text', '')}",
+        f"Yuqori samaradorlik xususiyatlari — {r.get('positiveWord', '')}: {r.get('positiveText', '')}",
+        f"To‘sqinlik qiluvchi xususiyatlar — {r.get('negativeWord', '')}: {r.get('negativeText', '')}",
+        "",
+        "YO‘NALISHLAR:",
+    ]
+    lines += [f"  • {d['title']} — {d.get('levelWord', '')}. {d.get('levelText', '')}" for d in r.get("directions") or []]
+    traits = r.get("traits") or []
+    lines += ["", f"{len(traits)} TA XUSUSIYAT:"]
+    lines += [f"  {i}. {t['title']} — {t.get('levelLabel', '').lower()}. {t.get('levelText', '')}" for i, t in enumerate(traits, 1)]
+    lines += [
+        "",
         "Kuchli tomonlari: " + (", ".join(s["title"] for s in r.get("strengths") or []) or "—"),
         "Rivojlanish kerak: " + (", ".join(s["title"] for s in r.get("development") or []) or "—"),
-        f"Ishonchlilik: {(r.get('reliability') or {}).get('level', '')}",
-        f"HR xulosasi: {(r.get('decision') or {}).get('title', '')}",
-        "Eng mos lavozimlar: " + ", ".join(f"{p['name']} {p['percent']}%" for p in (r.get("roles") or [])[:3]),
+    ]
+    if r.get("patterns"):
+        lines += ["", "XULQ-ATVOR NAQSHLARI:"]
+        lines += [f"  • {p['title']} — {p['text']}" for p in r["patterns"]]
+    pics = r.get("pictures") or []
+    if pics:
+        lines += ["", "RASMLI SAVOLLAR (birinchi ko‘rgani):"]
+        lines += [f"  • {p['title']}: «{p['answerText']}» — {p['description']}" for p in pics]
+    rel = r.get("reliability") or {}
+    lines += [
+        "",
+        f"Ishonchlilik: {rel.get('level', '')}" + (f" — {rel['text']}" if rel.get("text") else ""),
+        f"HR xulosasi: {(r.get('decision') or {}).get('title', '')}. {(r.get('decision') or {}).get('text', '')}",
+        "Eng mos lavozimlar: " + ", ".join(f"{p['name']} ({p.get('fit') or role_fit(int(p.get('percent') or 0)).lower()})"
+                                           for p in (r.get("roles") or [])[:3]),
     ]
     if r.get("interview"):
         lines.append("Suhbat savollari:")

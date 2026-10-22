@@ -4,7 +4,7 @@ import { AlertCircle, Star } from 'lucide-vue-next'
 import Modal from '@/components/ui/Modal.vue'
 import Button from '@/components/ui/Button.vue'
 import LoadingState from '@/components/ui/LoadingState.vue'
-import { landingResultsApi } from '@/api/landing'
+import { landingAssetUrl, landingResultsApi } from '@/api/landing'
 
 /** HR bilan kelishilgan baholash kaliti (backend/app/landing_tests/<slug>.json) */
 const props = defineProps({
@@ -46,10 +46,11 @@ const sectionItems = (id) => key.value.questions.filter((q) => q.section === id)
         <p class="font-semibold text-ink">Natija qanday hisoblanadi</p>
         <ul class="mt-2 list-disc space-y-1 pl-5">
           <li><b>{{ key.questions.length }} ta savol</b>, {{ Math.ceil(key.questions.length / key.stageSize) }} bosqich × {{ key.stageSize }} ta. Javob: «{{ key.options[0] }}» yoki «{{ key.options[1] }}».</li>
-          <li><b>13 ta xususiyat</b>, har birida 3 ta savol. To‘g‘ri savolda «{{ key.options[1] }}», <b>teskari savolda</b> «{{ key.options[0] }}» = 1 ball. Xususiyat foizi = ball / 3 × 100.</li>
-          <li><b>Yuqori samaradorlik</b> va <b>to‘sqinlik qiluvchi</b> foizlari — guruhdagi xususiyatlar o‘rtachasi. 4 ta yo‘nalish — undagi xususiyatlar o‘rtachasi.</li>
+          <li><b>13 ta xususiyat</b>, har birida 3 ta savol. To‘g‘ri savolda «{{ key.options[1] }}», <b>teskari savolda</b> «{{ key.options[0] }}» = 1 ball. Daraja: 3 ball — <b>yaqqol</b>, 2 ball — <b>qisman</b>, 0–1 ball — <b>kam namoyon bo‘ladi</b>. Hisobotda foiz emas, har bir daraja uchun tavsif chiqadi.</li>
+          <li><b>Yuqori samaradorlik</b> va <b>to‘sqinlik qiluvchi</b> xususiyatlar, 4 ta yo‘nalish — undagi xususiyatlar bo‘yicha umumiy daraja (yuqori / o‘rtacha / past) va tavsif.</li>
+          <li v-if="key.pictures?.length"><b>{{ key.pictures.length }} ta rasmli savol</b> (oxirgi bosqich): nomzod birinchi ko‘rgan narsani tanlaydi. Hisobotga tanlangan variant tavsifi yoziladi; asosiy ko‘rsatkichlarga qo‘shilmaydi.</li>
           <li><b>Ishonchlilik</b> (yuqori / o‘rtacha / past): diqqat tekshiruvi (21-savol), bir xil javoblar, juda tez topshirish, qarama-qarshi juft savollar, «ideal» javoblar.</li>
-          <li><b>Lavozimga moslik</b> — xususiyatlarning og‘irlikli o‘rtachasi (to‘sqinlik qiluvchilar teskari hisoblanadi).</li>
+          <li><b>Lavozimga moslik</b> — xususiyatlarning og‘irlikli o‘rtachasi (to‘sqinlik qiluvchilar teskari hisoblanadi): juda mos / mos / qisman mos / kam mos.</li>
           <li>Bu test klinik tashxis emas — HR suhbati uchun yo‘naltiruvchi ma’lumot.</li>
         </ul>
         <p class="mt-2 text-xs text-muted">Savollar, matnlar va kalitni o‘zgartirish: <code class="rounded bg-white px-1 py-0.5">backend/app/landing_tests/{{ key.slug }}.json</code>. Avval topshirilgan natijalar o‘zgarmaydi.</p>
@@ -117,6 +118,26 @@ const sectionItems = (id) => key.value.questions.filter((q) => q.section === id)
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- Rasmli savollar: variantlar va HR uchun tavsif -->
+      <section v-if="key.pictures?.length" class="mt-6">
+        <h3 class="text-sm font-semibold text-ink">Rasmli savollar</h3>
+        <p v-if="key.picturesNote" class="mt-1 text-xs text-muted">{{ key.picturesNote }}</p>
+        <div v-for="p in key.pictures" :key="p.id" class="mt-3 grid gap-4 rounded-xl border border-line p-3 sm:grid-cols-[180px_minmax(0,1fr)]">
+          <div class="grid aspect-[4/3] place-items-center rounded-lg bg-slate-50 p-1.5">
+            <img :src="landingAssetUrl(p.image)" :alt="p.title" class="h-full w-full object-contain" loading="lazy" />
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-ink">{{ p.title }} <span class="font-normal text-muted">· {{ p.question }}</span></p>
+            <ul class="mt-2 space-y-1.5">
+              <li v-for="(o, i) in p.options" :key="i" class="flex items-start gap-2 text-xs">
+                <b class="w-4 shrink-0 text-slate-500">{{ 'ABCDEFGH'[i] }}</b>
+                <span class="flex-1"><b class="text-ink">{{ o.text }}</b> — <span class="text-slate-600">{{ o.description }}</span></span>
+              </li>
+            </ul>
+          </div>
         </div>
       </section>
     </template>

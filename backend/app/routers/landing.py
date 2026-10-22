@@ -6,11 +6,13 @@ javob 0 = «Qo‘shilmayman», 1 = «Qo‘shilaman». Hisoblash va HR hisoboti �
 (avval saqlangan format=profile natijalari — app/profile_test.py).
 
 Ochiq (login talab qilinmaydi):
-    GET  /public/tests/{slug}          savolnoma (baholash kalitisiz) + bosqichlar (stages)
+    GET  /public/tests/{slug}          savolnoma (baholash kalitisiz) + bosqichlar (stages) + rasmli savollar (pictures)
+    GET  /public/tests/{slug}/images/{name}  rasmli savol rasmi (landing va CRM hisobotida ko‘rsatiladi)
     POST /public/tests/{slug}/phone-check  { phone } — savollardan OLDIN: raqam to‘g‘ri va hali ishlatilmaganmi
                                        200 { phone: '+998 90 123 45 67', available: true } | 422 noto‘g‘ri | 409 band
     POST /public/tests/{slug}/submit   javoblarni yuborish — hisoblash serverda.
                                        Telefon majburiy; bitta raqam bilan faqat bitta natija (409 — band).
+                                       persona testida: pictures = { rasm_id: variant_indeksi } (barcha rasmlar majburiy).
                                        Natija F.I.Sh. bilan saqlanadi; xodimlar ro‘yxatida F.I.Sh. mos keladigan
                                        YAGONA xodim bo‘lsa, natija unga ham bog‘lanadi (employeeId).
 
@@ -19,6 +21,7 @@ HR (login bilan):
     GET    /landing-tests/{slug}/key          baholash kaliti
     GET    /landing-results                   natijalar ro‘yxati
     GET    /landing-results/{id}              batafsil: savollar, javoblar; profil testida — HR hisoboti (report, reportText)
+                                              persona testida foiz o‘rniga daraja va tavsiflar (persona_test.describe)
     PATCH  /landing-results/{id}/viewed       "ko‘rildi" belgisi
     DELETE /landing-results/{id}
 """
@@ -27,6 +30,7 @@ import time
 from collections import defaultdict, deque
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.responses import FileResponse
 
 from .. import landing
 from .. import persona_test as ps
@@ -107,7 +111,18 @@ def _match_employee(store, full_name: str) -> dict | None:
 
 
 def _summary(row: dict) -> dict:
-    return {k: row.get(k) for k in SUMMARY_FIELDS}
+    out = {k: row.get(k) for k in SUMMARY_FIELDS}
+    if row.get("format") == "persona":
+        # Ro‘yxat va Excel uchun foiz o‘rniga so‘z bilan daraja
+        out["positiveWord"] = ps.LEVEL_WORD[ps.positive_level(int(row.get("positive") or 0))]
+        out["negativeWord"] = ps.LEVEL_WORD[ps.negative_level(int(row.get("negative") or 0))]
+        if row.get("bestPosition"):
+            out["bestPosition"] = {**row["bestPosition"], "fit": ps.role_fit(int(row["bestPosition"].get("percent") or 0))}
+        out["traitLevels"] = [{"title": s.get("title"), "levelLabel": ps.TRAIT_LEVEL_LABEL[ps.trait_level(int(s.get("percent") or 0))]}
+                              for s in row.get("sections") or []]
+        pics = (row.get("report") or {}).get("pictures") or []
+        out["pictures"] = [{"title": p["title"], "answerText": p["answerText"]} for p in pics]
+    return out
 
 
 def _same_phone(key: str):
@@ -119,6 +134,18 @@ def _same_phone(key: str):
 @public_router.get("/tests/{slug}")
 def public_test(slug: str):
     return landing.public_view(_questionnaire(slug))
+
+
+@public_router.get("/tests/{slug}/images/{name}")
+def public_test_image(slug: str, name: str):
+    """Rasmli savol rasmi — faqat savolnomada ko‘rsatilgan fayllar."""
+    if not ps.IMAGE_NAME_RE.fullmatch(name or ""):
+        raise not_found("Rasm")
+    _questionnaire(slug)
+    path = landing.picture_path(slug, name)
+    if not path:
+        raise not_found("Rasm")
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=86400"})
 
 
 @public_router.post("/tests/{slug}/phone-check")
@@ -147,11 +174,12 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
         raise bad_request("Lavozim noto‘g‘ri tanlangan")
     try:
         answers = landing.validate_answers(q, body.answers)
+        pictures = landing.validate_pictures(q, body.pictures)
     except landing.QuestionnaireError as e:
         raise bad_request(str(e))
     _rate_limit(request)
 
-    result = landing.score(q, answers, body.duration_sec, body.full_name)
+    result = landing.score(q, answers, body.duration_sec, body.full_name, pictures)
     employee = _match_employee(store, body.full_name) if landing.is_profile(q) else None
     # Noyoblik saqlash qatlamida ham: tekshirish + yozish bitta qulf ichida (bir vaqtdagi ikki so‘rov ham o‘tmaydi)
     row, taken = store.landing_results.insert_unique({
@@ -205,6 +233,11 @@ def hr_key(slug: str):
             "pairs": q.get("pairs") or [],
             "roles": q.get("roles") or [],
             "maxPoints": sum(k["maxPoints"] for k in key if not k.get("attention")), "questions": key,
+            # Rasmli savollar: har bir variant va HR uchun tavsifi
+            "pictures": [{"id": p["id"], "title": p["title"], "question": p["question"],
+                          "image": ps.image_url(q["slug"], p["image"]), "options": p["options"]}
+                         for p in q.get("pictures") or []],
+            "picturesNote": q.get("picturesNote") or ps.PICTURES_NOTE,
         }
     if landing.is_profile(q):
         sid = q["sincerity"]["id"]
@@ -243,7 +276,13 @@ def hr_result(result_id: int):
     row = get_or_404(get_store().landing_results, result_id, "Natija")
     row.pop("clientId", None)
     if row.get("format") == "persona" and row.get("report"):
-        # Nusxalash uchun matn ("ISHDAGI SHAXSIYAT 360 — NATIJA") — saqlangan natijadan tuziladi
+        # Foiz o‘rniga daraja va tavsiflar — joriy savolnoma matnlaridan (eski natijalar uchun ham)
+        try:
+            q = landing.load_questionnaire(row.get("testSlug") or "")
+        except (landing.QuestionnaireError, ValueError):
+            q = None
+        ps.describe(row["report"], q if q and landing.is_persona(q) else None)
+        # Nusxalash uchun matn ("ISHDAGI SHAXSIYAT 360 — NATIJA") — saqlangan natijadan tuziladi, foizsiz
         row["reportText"] = ps.report_text(row)
     elif row.get("format") == "profile" and row.get("report"):
         row["reportText"] = pt.report_text(row)

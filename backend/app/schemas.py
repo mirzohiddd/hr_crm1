@@ -184,6 +184,8 @@ class LandingSubmitIn(In):
     # Majburiy: '+998 90 123 45 67' ko‘rinishiga keltiriladi; bitta raqam bilan faqat bir marta topshiriladi
     phone: str = Field(default="", max_length=30, validate_default=True)
     answers: dict[str, Any]
+    # Rasmli savollar (persona testi, oxirgi bosqich): { rasm_id: variant_indeksi }
+    pictures: dict[str, Any] | None = None
     duration_sec: int | None = Field(default=None, ge=0, le=86400)
     client_id: str | None = Field(default=None, max_length=64)
 
