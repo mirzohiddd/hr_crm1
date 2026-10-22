@@ -22,6 +22,26 @@ def _strip(v):
     return v.strip() if isinstance(v, str) else v
 
 
+# Test vaqti (soniya) uchun yuqori chegara: 1 sutka
+MAX_DURATION_SEC = 86400
+
+
+def _duration(v):
+    """
+    durationSec — brauzer hisoblagan test vaqti (yordamchi ma’lumot, ishonchlilik tekshiruvi uchun).
+    Nomzod testni boshlab, sahifani yopib, keyinroq qaytsa vaqt 1 sutkadan oshib ketishi yoki kompyuter soati
+    o‘zgarsa manfiy bo‘lishi mumkin. Bunday holatda butun testni rad etmaymiz — vaqt «noma’lum» (None) deb saqlanadi.
+    Son bo‘lmagan qiymat (matn va h.k.) esa avvalgidek validatsiya xatosi beradi.
+    """
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        if v != v or v < 0 or v > MAX_DURATION_SEC:  # NaN, manfiy yoki 1 sutkadan ko‘p
+            return None
+        return round(v)
+    return v
+
+
 # ---------- Auth / foydalanuvchilar ----------
 class LoginIn(BaseModel):
     login: str
@@ -186,10 +206,11 @@ class LandingSubmitIn(In):
     answers: dict[str, Any]
     # Rasmli savollar (persona testi, oxirgi bosqich): { rasm_id: variant_indeksi }
     pictures: dict[str, Any] | None = None
-    duration_sec: int | None = Field(default=None, ge=0, le=86400)
+    duration_sec: int | None = Field(default=None, ge=0, le=MAX_DURATION_SEC)
     client_id: str | None = Field(default=None, max_length=64)
 
     _strip_text = field_validator("full_name", "position", "phone", mode="before")(_strip)
+    _duration_sec = field_validator("duration_sec", mode="before")(_duration)
     _phone = field_validator("phone")(normalize_phone)
 
     @field_validator("full_name")
@@ -223,8 +244,9 @@ class FinalRegisterIn(In):
 
 class FinalSubmitIn(In):
     answers: dict[str, Any]
-    duration_sec: int | None = Field(default=None, ge=0, le=86400)
+    duration_sec: int | None = Field(default=None, ge=0, le=MAX_DURATION_SEC)
     client_id: str | None = Field(default=None, max_length=64)  # takroriy yuborishdan himoya
+    _duration_sec = field_validator("duration_sec", mode="before")(_duration)
     participant_id: int | None = None  # /register javobidagi id
     participant_key: str | None = Field(default=None, max_length=128)  # /register javobidagi maxfiy kalit
 

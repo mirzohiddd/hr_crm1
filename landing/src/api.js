@@ -10,11 +10,45 @@
 const BASE_URL = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/, '')
 
 export class ApiError extends Error {
-  constructor(message, status = 0, field = '') {
+  constructor(message, status = 0, field = '', technical = '', raw = null) {
     super(message)
     this.status = status
     this.field = field // xato qaysi maydonga tegishli (masalan, 'phone') — backend 422 javobidan
+    this.technical = technical // asl xato matni ("durationSec: Input should be ...") — yashirilmaydi, kichik shriftda ko‘rsatiladi
+    this.raw = raw // backend javobi (detail) to‘liq
   }
+}
+
+// 422 (FastAPI/Pydantic) xatolari: maydon nomi va xato turi → tushunarli o‘zbekcha matn
+const FIELD_LABELS = {
+  fullName: 'F.I.Sh.', age: 'Yosh', date: 'Sana', position: 'Lavozim', phone: 'Telefon raqami',
+  answers: 'Javoblar', pictures: 'Rasmli savollar', durationSec: 'Test vaqti', clientId: 'So‘rov identifikatori',
+}
+function friendlyValidation(item) {
+  const loc = (item.loc || []).filter((x) => x !== 'body')
+  const field = String(loc[0] ?? '')
+  const label = FIELD_LABELS[field] || field || 'Ma’lumot'
+  const ctx = item.ctx || {}
+  const msg = String(item.msg || '')
+  // Backend o‘zbekcha yozgan xatolar (ValueError) — o‘zi tushunarli
+  if (item.type === 'value_error') return msg.replace(/^Value error,\s*/, '')
+  const byType = {
+    missing: `${label} kiritilmagan`,
+    less_than_equal: `${label} qiymati juda katta (eng ko‘pi ${ctx.le})`,
+    less_than: `${label} qiymati juda katta`,
+    greater_than_equal: `${label} qiymati juda kichik (kamida ${ctx.ge})`,
+    greater_than: `${label} qiymati juda kichik`,
+    int_parsing: `${label} butun son bo‘lishi kerak`,
+    int_type: `${label} butun son bo‘lishi kerak`,
+    int_from_float: `${label} butun son bo‘lishi kerak`,
+    string_too_short: `${label} juda qisqa`,
+    string_too_long: `${label} juda uzun`,
+    string_pattern_mismatch: `${label} formati noto‘g‘ri`,
+    string_type: `${label} matn bo‘lishi kerak`,
+    dict_type: `${label} noto‘g‘ri formatda yuborildi`,
+  }
+  const text = byType[item.type] || `${label}: ma’lumot noto‘g‘ri`
+  return field === 'durationSec' ? `${text}. Sahifani yangilab, «Testni yakunlash» ni qayta bosing.` : text
 }
 
 async function request(path, { method = 'GET', body } = {}) {
@@ -37,12 +71,15 @@ async function request(path, { method = 'GET', body } = {}) {
   if (!response.ok) {
     let message = `So‘rov bajarilmadi (${response.status})`
     let field = ''
+    let technical = ''
     if (typeof data?.detail === 'string') message = data.detail
     else if (Array.isArray(data?.detail) && data.detail[0]?.msg) {
-      message = String(data.detail[0].msg).replace(/^Value error,\s*/, '')
-      field = String(data.detail[0].loc?.at(-1) ?? '')
+      const item = data.detail[0]
+      message = friendlyValidation(item)
+      field = String(item.loc?.at(-1) ?? '')
+      technical = data.detail.map((d) => `${(d.loc || []).filter((x) => x !== 'body').join('.')}: ${d.msg}`).join('; ')
     }
-    throw new ApiError(message, response.status, field)
+    throw new ApiError(message, response.status, field, technical, data?.detail ?? null)
   }
   return data
 }

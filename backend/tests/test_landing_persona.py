@@ -164,13 +164,17 @@ def test_deterministic(cfg):
 
 
 def test_report_text_format(cfg):
-    g = ps.grade(cfg, answers_for(cfg, SAMPLE, attention_ok=False), 300, "Shermanov Mirzohid")
+    g = ps.grade(cfg, answers_for(cfg, SAMPLE, attention_ok=False), 300, "Shermanov Mirzohid", PICTURES)
     text = ps.report_text({**g, "fullName": "Shermanov Mirzohid", "submittedAt": "2026-10-16T10:22"})
+    # Natija matnida foiz yo‘q — daraja va tavsiflar
     for part in ("ISHDAGI SHAXSIYAT 360 — NATIJA", "Ism: Shermanov Mirzohid", "Sana: 16.10.2026",
-                 "Profil: E'tibor talab qiladigan profil", "Yuqori samaradorlik: 78%, to‘sqinlik qiluvchi: 95%",
-                 "Natijaga ishlash 84%", "Innovatsiya 67%", "Kuchli tomonlari: Yordamsevarlik, Raqobatchilik",
-                 "Ishonchlilik: past", "HR xulosasi: Natija ishonchsiz", "Eng mos lavozimlar:"):
+                 "PROFIL: E'tibor talab qiladigan profil", "Yuqori samaradorlik xususiyatlari — yuqori",
+                 "To‘sqinlik qiluvchi xususiyatlar — yuqori", "Natijaga ishlash — yuqori", "13 TA XUSUSIYAT:",
+                 "Innovatsiya — qisman namoyon bo‘ladi", "Kuchli tomonlari: Yordamsevarlik, Raqobatchilik",
+                 "RASMLI SAVOLLAR", "1-rasm: «Ayolning yuzi»", "Ishonchlilik: past", "HR xulosasi: Natija ishonchsiz",
+                 "Eng mos lavozimlar:"):
         assert part in text, part
+    assert "%" not in text
 
 
 @pytest.mark.parametrize("mutate, message", [
@@ -189,12 +193,15 @@ def test_validate_config_errors(cfg, mutate, message):
 
 # ---------- API ----------
 _phones = itertools.count(1)
+PICTURES = {"rasm-1": 0, "rasm-2": 1, "rasm-3": 2}
 
 
 def candidate(**over):
     # Telefon majburiy va noyob — har bir nomzodga alohida raqam
     data = {"fullName": "Shermanov Mirzohid", "age": 25, "date": date.today().isoformat(), "position": "Marketing",
-            "phone": f"+99893{next(_phones):07d}"}
+            "phone": f"+99893{next(_phones):07d}",
+            # Rasmli savollar (oxirgi bosqich) — majburiy
+            "pictures": dict(PICTURES)}
     data.update(over)
     return data
 
@@ -253,3 +260,17 @@ def test_hr_key(client, hr_headers):
     assert len(k["sections"]) == 14 and len(k["directions"]) == 4
     q21 = next(q for q in k["questions"] if q["id"] == 21)
     assert q21["attention"] and [c["points"] for c in q21["choices"]] == [1, 0]
+
+# ---------- durationSec: "Input should be less than or equal to 86400" ----------
+@pytest.mark.parametrize("sent, saved", [(90000, None), (10 ** 9, None), (-5, None), (86400, 86400), (300, 300), (12.6, 13), (None, None)])
+def test_duration_out_of_range_does_not_reject_test(client, hr_headers, cfg, sent, saved):
+    """Nomzod testni boshlab, ertasi kuni qaytsa (vaqt > 1 sutka) yoki soat o‘zgarsa — test rad etilmaydi, vaqt noma’lum."""
+    r = client.post(SUBMIT, json={**candidate(), "answers": as_json(answers_for(cfg, SAMPLE)), "durationSec": sent})
+    assert r.status_code == 201, r.text
+    row = client.get(f"{API}/landing-results/{r.json()['id']}", headers=hr_headers).json()
+    assert row["durationSec"] == saved
+
+
+def test_duration_wrong_type_still_validated(client, cfg):
+    r = client.post(SUBMIT, json={**candidate(), "answers": as_json(answers_for(cfg, SAMPLE)), "durationSec": "abc"})
+    assert r.status_code == 422 and r.json()["detail"][0]["loc"][-1] == "durationSec"

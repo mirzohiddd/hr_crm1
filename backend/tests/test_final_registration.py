@@ -211,6 +211,7 @@ def test_landing1_still_works(client):
     r = client.post(f"{API}/public/tests/sotuv/submit", json={
         "fullName": "Testov Test Testovich", "age": 25, "date": date.today().isoformat(),
         "position": "Marketing", "phone": "+998 95 100 00 01", "answers": answers,  # telefon — majburiy
+        "pictures": {"rasm-1": 0, "rasm-2": 0, "rasm-3": 0},  # rasmli savollar — majburiy
     })
     assert r.status_code == 201, r.text
 

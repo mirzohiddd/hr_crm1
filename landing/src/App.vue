@@ -59,10 +59,18 @@ const answers = reactive({})
 const picAnswers = reactive({}) // rasmli savollar: { rasmId: variant indeksi }
 const current = ref(0)
 const direction = ref(1)
+// Test vaqti: faqat faol vaqt hisoblanadi. Sahifa yopilgan / kompyuter uxlagan / tab uzoq yashirin turgan
+// tanaffuslar (IDLE_GAP_MS dan uzun) startedAt ni oldinga surish orqali chiqarib tashlanadi.
+// Aks holda nomzod ertasi kuni qaytsa, vaqt 1 sutkadan oshib, backend testni rad etardi (durationSec ≤ 86400).
+const MAX_DURATION_SEC = 86400 // backend bilan bir xil (backend/app/schemas.py → MAX_DURATION_SEC)
+const IDLE_GAP_MS = 10 * 60 * 1000
 const startedAt = ref(null)
+const lastActiveAt = ref(null)
+const timeUnknown = ref(false) // eski qoralamadan tiklanganda haqiqiy vaqtni bilib bo‘lmasa
 const clientId = ref(newId())
 const submitting = ref(false)
 const submitError = ref('')
+const submitDetail = ref('') // asl texnik xato (masalan: "durationSec: Input should be ..."), kichik shriftda
 const done = ref(null)
 // Telefon: backend tasdiqlagan raqam ('+998 90 123 45 67'); bo‘sh — savollarga o‘tib bo‘lmaydi
 const phoneVerified = ref('')
@@ -211,6 +219,7 @@ function saveDraft() {
       DRAFT_KEY.value,
       JSON.stringify({
         phase: phase.value, form, answers, pictures: picAnswers, current: current.value, stage: stage.value, startedAt: startedAt.value,
+        lastActiveAt: startedAt.value ? Date.now() : null, timeUnknown: timeUnknown.value,
         clientId: clientId.value, done: done.value, phoneVerified: phoneVerified.value,
       }),
     )
@@ -232,7 +241,7 @@ function loadDraft() {
       const p = pictures.value.find((x) => x.id === k)
       if (p && Number.isInteger(v) && v >= 0 && v < p.options.length) picAnswers[k] = v
     })
-    startedAt.value = d.startedAt || null
+    restoreTimer(d)
     clientId.value = d.clientId || clientId.value
     done.value = d.done || null
     phoneVerified.value = typeof d.phoneVerified === 'string' ? d.phoneVerified : ''
@@ -249,6 +258,50 @@ function loadDraft() {
     /* buzilgan qoralama */
   }
 }
+/** Qoralamadan vaqtni tiklash: sahifa yopiq turgan vaqt test vaqtiga qo‘shilmaydi */
+function restoreTimer(d) {
+  const start = Number(d.startedAt) || null
+  const last = Number(d.lastActiveAt) || null
+  timeUnknown.value = d.timeUnknown === true
+  startedAt.value = start
+  lastActiveAt.value = start ? Date.now() : null
+  if (!start) return
+  if (last && last >= start && last <= Date.now()) {
+    // Sahifa yopilgan paytdan hozirgacha bo‘lgan tanaffus chiqarib tashlanadi
+    startedAt.value = start + (Date.now() - last)
+  } else if (Date.now() - start > MAX_DURATION_SEC * 1000 || start > Date.now()) {
+    // Eski qoralama (lastActiveAt yo‘q) yoki soat o‘zgargan: haqiqiy vaqtni bilib bo‘lmaydi
+    startedAt.value = Date.now()
+    timeUnknown.value = true
+  }
+}
+/** Tanaffus (kompyuter uxlagan, tab uzoq yashirin) — vaqtga qo‘shilmaydi */
+function markActive() {
+  const t = Date.now()
+  if (startedAt.value && lastActiveAt.value && t - lastActiveAt.value > IDLE_GAP_MS) {
+    startedAt.value += t - lastActiveAt.value
+  }
+  lastActiveAt.value = startedAt.value ? t : null
+}
+/** Backendga yuboriladigan vaqt (soniya): noma’lum yoki chegaradan tashqari bo‘lsa — null */
+function durationSeconds() {
+  if (!startedAt.value || timeUnknown.value) return null
+  const s = Math.round((Date.now() - startedAt.value) / 1000)
+  return s >= 0 && s <= MAX_DURATION_SEC ? s : null
+}
+function onVisibility() {
+  if (document.visibilityState === 'visible') markActive()
+  else saveDraft()
+}
+onMounted(() => {
+  document.addEventListener('visibilitychange', onVisibility)
+  window.addEventListener('pagehide', saveDraft)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibility)
+  window.removeEventListener('pagehide', saveDraft)
+})
+
 function clearDraft() {
   try {
     localStorage.removeItem(DRAFT_KEY.value)
@@ -339,6 +392,7 @@ async function start() {
   form.phone = normalizePhone(form.phone)
   if (!(await verifyPhone())) return
   if (!startedAt.value) startedAt.value = Date.now()
+  markActive()
   phase.value = 'quiz'
   current.value = allAnswered.value ? 0 : Math.max(0, firstUnanswered.value)
   if (isProfile.value) {
@@ -432,7 +486,10 @@ onBeforeUnmount(() => {
 
 // Sarflangan vaqt
 const now = ref(Date.now())
-const ticker = setInterval(() => (now.value = Date.now()), 1000)
+const ticker = setInterval(() => {
+  markActive()
+  now.value = Date.now()
+}, 1000)
 const elapsed = computed(() => {
   if (!startedAt.value) return '00:00'
   const s = Math.max(0, Math.floor((now.value - startedAt.value) / 1000))
@@ -452,6 +509,7 @@ const answerText = (q) => {
 // ---------- 3-bosqich: topshirish ----------
 async function submit() {
   submitError.value = ''
+  submitDetail.value = ''
   if (!allAnswered.value) {
     submitError.value = `Barcha savollarga javob bering (${total.value - answeredCount.value} ta javobsiz).`
     return
@@ -474,7 +532,7 @@ async function submit() {
       phone: normalizePhone(form.phone),
       answers: { ...answers },
       ...(hasPictures.value ? { pictures: { ...picAnswers } } : {}),
-      durationSec: startedAt.value ? Math.round((Date.now() - startedAt.value) / 1000) : null,
+      durationSec: durationSeconds(),
       clientId: clientId.value,
     })
     done.value = { name: firstName.value, fullName: form.fullName, position: form.position, submittedAt: res.submittedAt }
@@ -488,7 +546,10 @@ async function submit() {
       scrollTop()
       showPhoneError(e.message)
     } else {
+      // Tushunarli xabar + asl (texnik) xato — HR ga aytish yoki skrinshot uchun
       submitError.value = e.message || 'Yuborib bo‘lmadi. Qayta urinib ko‘ring.'
+      submitDetail.value = e.technical || ''
+      if (e.technical) console.warn('Test yuborilmadi:', e.technical, e.raw)
     }
   } finally {
     submitting.value = false
@@ -505,6 +566,9 @@ function restart() {
   stage.value = 0
   highlight.value = false
   startedAt.value = null
+  lastActiveAt.value = null
+  timeUnknown.value = false
+  submitDetail.value = ''
   clientId.value = newId()
   done.value = null
   submitError.value = ''
@@ -830,7 +894,8 @@ const steps = computed(() =>
               </Transition>
 
               <p v-if="submitError" class="mt-4 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-                <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" /> {{ submitError }}
+                <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
+                <span class="min-w-0">{{ submitError }}<span v-if="submitDetail" class="mt-1 block break-words text-xs text-red-500/80">Texnik ma’lumot: {{ submitDetail }}</span></span>
               </p>
 
               <div class="mt-6 flex items-center justify-between gap-3 border-t border-line pt-5">
@@ -1004,7 +1069,8 @@ const steps = computed(() =>
           </div>
 
           <p v-if="submitError" class="mt-5 flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-            <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" /> {{ submitError }}
+            <AlertCircle class="mt-0.5 h-4 w-4 shrink-0" />
+                <span class="min-w-0">{{ submitError }}<span v-if="submitDetail" class="mt-1 block break-words text-xs text-red-500/80">Texnik ma’lumot: {{ submitDetail }}</span></span>
           </p>
 
           <div class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
