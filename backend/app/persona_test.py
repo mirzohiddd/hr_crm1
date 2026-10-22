@@ -33,8 +33,11 @@ Bu test klinik yoki psixologik tashxis emas — HR suhbati uchun yo‘naltiruvch
 """
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
+
+log = logging.getLogger("hr-crm")
 
 AGREE, DISAGREE = 1, 0
 OPTIONS = ["Qo‘shilmayman", "Qo‘shilaman"]
@@ -143,6 +146,7 @@ def validate_config(data: dict) -> dict:
             raise ValueError(f"roles: {r['name']} — og‘irliklar musbat son bo‘lishi kerak")
 
     pic_ids: set[str] = set()
+    available = []
     for p in data.get("pictures") or []:
         pid = p.get("id")
         if not isinstance(pid, str) or not PICTURE_ID_RE.fullmatch(pid) or pid in pic_ids:
@@ -151,11 +155,16 @@ def validate_config(data: dict) -> dict:
         img = p.get("image")
         if not isinstance(img, str) or not IMAGE_NAME_RE.fullmatch(img):
             raise ValueError(f"pictures: {pid} — image fayl nomi noto‘g‘ri ({img})")
-        if not (IMAGES_DIR / img).is_file():
-            raise ValueError(f"pictures: {pid} — rasm fayli topilmadi: landing_tests/images/{img}")
         opts = p.get("options") or []
         if not 2 <= len(opts) <= 6 or any(not isinstance(o, dict) or not o.get("text") or not o.get("description") for o in opts):
             raise ValueError(f"pictures: {pid} — 2–6 ta variant kerak, har birida text va description")
+        if not (IMAGES_DIR / img).is_file():
+            # Rasm fayli serverga yuklanmagan bo‘lsa — butun test to‘xtamaydi: bu rasmli savol vaqtincha ko‘rsatilmaydi
+            log.error("sotuv.json: %s — rasm fayli topilmadi: %s. Bu rasmli savol nomzodga ko‘rsatilmaydi; "
+                      "faylni backend/app/landing_tests/images/ papkasiga qo‘ying.", pid, IMAGES_DIR / img)
+            continue
+        available.append(p)
+    data["pictures"] = available
     return data
 
 
