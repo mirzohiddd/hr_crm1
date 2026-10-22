@@ -545,6 +545,10 @@ async function submit() {
       phase.value = 'intro'
       scrollTop()
       showPhoneError(e.message)
+    } else if (e.status === 400 && /^Rasmli savollarga javob bering/.test(e.message || '') && (await refreshPictures())) {
+      // Sahifa rasmli savollar qo‘shilishidan oldin ochilgan: test qayta yuklandi, javoblar saqlandi —
+      // nomzod rasmlar bosqichiga o‘tkaziladi
+      submitError.value = 'Testga rasmli savollar qo‘shildi. Javoblaringiz saqlandi — quyidagi rasmlarga javob bering va «Testni yakunlash» ni bosing.'
     } else {
       // Tushunarli xabar + asl (texnik) xato — HR ga aytish yoki skrinshot uchun
       submitError.value = e.message || 'Yuborib bo‘lmadi. Qayta urinib ko‘ring.'
@@ -553,6 +557,23 @@ async function submit() {
     }
   } finally {
     submitting.value = false
+  }
+}
+
+/** Testni serverdan qayta yuklab, rasmli savollarni qo‘shadi (javoblar o‘zgarmaydi). true — rasmlar bosqichiga o‘tildi */
+async function refreshPictures() {
+  try {
+    const fresh = await testApi.get(slug.value)
+    if (!fresh?.pictures?.length) return false
+    test.value = { ...test.value, pictures: fresh.pictures, stages: fresh.stages || test.value.stages }
+    await nextTick()
+    highlight.value = false
+    direction.value = 1
+    stage.value = picStage.value
+    scrollTop()
+    return true
+  } catch {
+    return false
   }
 }
 
