@@ -121,7 +121,9 @@ def _summary(row: dict) -> dict:
         out["traitLevels"] = [{"title": s.get("title"), "levelLabel": ps.TRAIT_LEVEL_LABEL[ps.trait_level(int(s.get("percent") or 0))]}
                               for s in row.get("sections") or []]
         pics = (row.get("report") or {}).get("pictures") or []
-        out["pictures"] = [{"title": p["title"], "answerText": p["answerText"]} for p in pics]
+        # Qaysi rasmda qaysi variant tanlangani (ro‘yxat va Excel uchun): 1-rasm → B «Otlar»
+        out["pictures"] = [{"title": p["title"], "answer": p.get("answer"), "letter": "ABCDEFGH"[p["answer"]] if isinstance(p.get("answer"), int) else "",
+                            "answerText": p["answerText"]} for p in pics]
     return out
 
 

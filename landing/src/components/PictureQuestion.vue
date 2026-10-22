@@ -1,11 +1,12 @@
 <script setup>
 import { ref } from 'vue'
-import { Expand, ImageOff, X } from 'lucide-vue-next'
+import { Expand, ImageOff, Lock, X } from 'lucide-vue-next'
 import ChoiceAnswer from '@/components/ChoiceAnswer.vue'
 
 /**
  * Rasmli savol (persona testi, oxirgi bosqich): rasm + 4 ta variant (A–D).
- * Nomzod rasmda birinchi bo‘lib ko‘rgan narsani tanlaydi. Variant tavsiflari faqat HR hisobotida.
+ * Nomzod rasmda birinchi bo‘lib ko‘rgan narsani tanlaydi. Tanlangan variant qulflanadi (o‘zgartirib bo‘lmaydi).
+ * Variant tavsiflari faqat HR hisobotida.
  */
 defineProps({
   picture: { type: Object, required: true }, // { id, title, question, image, options: [text] }
@@ -40,8 +41,12 @@ const broken = ref(false)
       <p class="text-xs font-semibold uppercase tracking-wider text-primary-600">{{ picture.title }}</p>
       <h3 class="mt-1 text-lg font-semibold leading-snug tracking-tight text-ink">{{ picture.question }}</h3>
       <div class="mt-4">
-        <ChoiceAnswer :model-value="modelValue" :options="picture.options" :name="`${picture.title}: ${picture.question}`" @update:model-value="emit('update:modelValue', $event)" />
+        <!-- Javob tanlangach qulflanadi: boshqa variantni tanlab bo‘lmaydi -->
+        <ChoiceAnswer :model-value="modelValue" :options="picture.options" :name="`${picture.title}: ${picture.question}`" :locked="modelValue !== null" @update:model-value="emit('update:modelValue', $event)" />
       </div>
+      <p v-if="modelValue !== null" class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-600/20">
+        <Lock class="h-3.5 w-3.5" /> Javob qabul qilindi — o‘zgartirib bo‘lmaydi
+      </p>
     </div>
 
     <Teleport to="body">

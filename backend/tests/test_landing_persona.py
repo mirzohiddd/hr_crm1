@@ -171,7 +171,7 @@ def test_report_text_format(cfg):
                  "PROFIL: E'tibor talab qiladigan profil", "Yuqori samaradorlik xususiyatlari — yuqori",
                  "To‘sqinlik qiluvchi xususiyatlar — yuqori", "Natijaga ishlash — yuqori", "13 TA XUSUSIYAT:",
                  "Innovatsiya — qisman namoyon bo‘ladi", "Kuchli tomonlari: Yordamsevarlik, Raqobatchilik",
-                 "RASMLI SAVOLLAR", "1-rasm: «Ayolning yuzi»", "Ishonchlilik: past", "HR xulosasi: Natija ishonchsiz",
+                 "RASMLI SAVOLLAR", "1-rasm: A) «Ayolning yuzi»", "3-rasm: C) «Shoxlar orasidagi yashirin yuzlar»", "Ishonchlilik: past", "HR xulosasi: Natija ishonchsiz",
                  "Eng mos lavozimlar:"):
         assert part in text, part
     assert "%" not in text
@@ -274,3 +274,15 @@ def test_duration_out_of_range_does_not_reject_test(client, hr_headers, cfg, sen
 def test_duration_wrong_type_still_validated(client, cfg):
     r = client.post(SUBMIT, json={**candidate(), "answers": as_json(answers_for(cfg, SAMPLE)), "durationSec": "abc"})
     assert r.status_code == 422 and r.json()["detail"][0]["loc"][-1] == "durationSec"
+
+
+def test_summary_shows_picture_choice(client, hr_headers, cfg):
+    """CRM ro‘yxatida qaysi rasmda qaysi variant tanlangani ko‘rinadi."""
+    rid = client.post(SUBMIT, json={**candidate(), "answers": as_json(answers_for(cfg, SAMPLE)),
+                                    "pictures": {"rasm-1": 1, "rasm-2": 3, "rasm-3": 0}}).json()["id"]
+    row = next(x for x in client.get(f"{API}/landing-results", headers=hr_headers).json() if x["id"] == rid)
+    assert [(p["title"], p["letter"], p["answerText"]) for p in row["pictures"]] == [
+        ("1-rasm", "B", "Otlar"), ("2-rasm", "D", "Aniq bir narsani ko‘rmadim"), ("3-rasm", "A", "Daraxt")]
+    rep = client.get(f"{API}/landing-results/{rid}", headers=hr_headers).json()
+    assert [p["answer"] for p in rep["report"]["pictures"]] == [1, 3, 0]
+    assert "1-rasm: B) «Otlar»" in rep["reportText"]

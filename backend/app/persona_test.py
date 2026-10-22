@@ -340,6 +340,10 @@ def describe(report: dict, test: dict | None = None) -> dict:
     return report
 
 
+def _letter(i) -> str:
+    return f"{'ABCDEFGH'[i]}) " if isinstance(i, int) and 0 <= i < 8 else ""
+
+
 def _strip_percent(text: str) -> str:
     return re.sub(r"Savollarning \d+% iga", "Deyarli barcha savollarga", str(text))
 
@@ -620,7 +624,7 @@ def report_text(result: dict) -> str:
     pics = r.get("pictures") or []
     if pics:
         lines += ["", "RASMLI SAVOLLAR (birinchi ko‘rgani):"]
-        lines += [f"  • {p['title']}: «{p['answerText']}» — {p['description']}" for p in pics]
+        lines += [f"  • {p['title']}: {_letter(p.get('answer'))}«{p['answerText']}» — {p['description']}" for p in pics]
     rel = r.get("reliability") or {}
     lines += [
         "",

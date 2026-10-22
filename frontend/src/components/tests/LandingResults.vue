@@ -86,7 +86,7 @@ function exportCsv() {
           r.fullName, r.position, r.age, r.phone, r.date, formatDateTime(r.submittedAt), LANDING_RESULT_LABELS[r.status] || r.status,
           r.profileTitle || '', r.reliabilityLevel || '', r.positiveWord || '', r.negativeWord || '',
           (r.traitLevels || []).map((t) => `${t.title} — ${t.levelLabel.toLowerCase()}`).join('; '),
-          (r.pictures || []).map((p) => `${p.title}: ${p.answerText}`).join('; '),
+          (r.pictures || []).map((p) => `${p.title}: ${p.letter ? `${p.letter}) ` : ''}${p.answerText}`).join('; '),
           r.bestPosition ? `${r.bestPosition.name}${r.bestPosition.fit ? ` (${r.bestPosition.fit.toLowerCase()})` : ''}` : '',
           '', '',
         ]
@@ -200,6 +200,10 @@ async function confirmDelete() {
                   <div v-if="isPersona(r)" class="min-w-0">
                     <p class="text-[13px] font-medium text-ink">{{ r.profileTitle }}</p>
                     <p class="text-[11px] text-muted">Ishonchlilik: <b :class="REL_TONE[r.reliabilityLevel]">{{ r.reliabilityLevel }}</b></p>
+                    <!-- Rasmli savollar: qaysi rasmda qaysi variant -->
+                    <p v-if="r.pictures?.length" class="mt-1 flex flex-wrap gap-1">
+                      <span v-for="(p, i) in r.pictures" :key="i" class="rounded-md bg-primary-50 px-1.5 py-0.5 text-[11px] font-medium text-primary-700" :title="`${p.title}: ${p.answerText}`">{{ i + 1 }}-rasm: {{ p.letter || '' }} {{ p.answerText }}</span>
+                    </p>
                   </div>
                   <div v-else-if="isProfile(r) && r.scores" class="grid w-40 grid-cols-2 gap-x-3 gap-y-1">
                     <div v-for="(v, id) in r.scores" :key="id" class="flex items-center gap-1" :title="`${scaleTitle(id, r)}: ${v}%`">
@@ -256,6 +260,7 @@ async function confirmDelete() {
                 <span class="mt-0.5 block truncate text-[13px] text-slate-600">{{ r.position }} · {{ r.age }} yosh</span>
                 <span class="mt-1 flex flex-wrap gap-x-4 text-xs tabular-nums text-muted">
                   <span v-if="isPersona(r)"><b class="text-ink">{{ r.profileTitle }}</b> · ishonchlilik {{ r.reliabilityLevel }}<template v-if="r.bestPosition"> · {{ r.bestPosition.name }}</template></span>
+                  <span v-if="isPersona(r) && r.pictures?.length" class="w-full">Rasmlar: {{ r.pictures.map((p, i) => `${i + 1}-${p.letter || ''} ${p.answerText}`).join(' · ') }}</span>
                   <span v-else-if="isProfile(r)"><b class="text-ink">{{ r.percent }}%</b> indeks · ishonchlilik {{ r.reliability }}%<template v-if="r.bestPosition"> · {{ r.bestPosition.name }}</template></span>
                   <span v-else><b class="text-ink">{{ r.percent }}%</b> · {{ r.points }}/{{ r.maxPoints }} ball</span>
                   <span>{{ formatDateTime(r.submittedAt) }}</span>

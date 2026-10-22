@@ -193,6 +193,8 @@ function selectAgree(q, value) {
   if (nextQ) scrollToQuestion(nextQ)
 }
 function selectPicture(p, value) {
+  // Rasmli savolda birinchi tanlangan variant qulflanadi — keyin o‘zgartirib bo‘lmaydi
+  if (isPicDone(p)) return
   picAnswers[p.id] = value
   if (allPicturesDone.value) {
     submitError.value = ''
@@ -877,7 +879,7 @@ const steps = computed(() =>
                   <h2 v-if="isPictureStage" class="mt-1 text-xl font-semibold tracking-tight">Rasmli savollar</h2>
                   <h2 v-else class="mt-1 text-xl font-semibold tracking-tight">{{ stageOffset + 1 }}–{{ stageOffset + stageQuestions.length }}-savollar</h2>
                 </div>
-                <p v-if="isPictureStage" class="text-xs text-muted">Har bir rasmga qarang va birinchi bo‘lib ko‘rgan narsangizni tanlang</p>
+                <p v-if="isPictureStage" class="max-w-sm text-xs text-muted sm:text-right">Har bir rasmga qarang va birinchi bo‘lib ko‘rgan narsangizni tanlang. <b class="font-semibold text-amber-700">Tanlangan javobni keyin o‘zgartirib bo‘lmaydi.</b></p>
                 <p v-else class="text-xs text-muted">Har bir fikrga: «{{ agreeOptions[0] }}» yoki «{{ agreeOptions[1] }}»</p>
               </div>
 

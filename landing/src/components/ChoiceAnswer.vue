@@ -1,11 +1,12 @@
 <script setup>
 import { Check } from 'lucide-vue-next'
 
-/** A/B/C/D variantli savol */
+/** A/B/C/D variantli savol. locked — javob qulflangan: tanlangan variant qoladi, boshqalari faol emas */
 defineProps({
   modelValue: { type: Number, default: null },
   options: { type: Array, required: true },
   name: { type: String, required: true },
+  locked: { type: Boolean, default: false },
 })
 const emit = defineEmits(['update:modelValue'])
 const LETTERS = 'ABCDEFGH'
@@ -19,9 +20,11 @@ const LETTERS = 'ABCDEFGH'
       type="button"
       role="radio"
       :aria-checked="modelValue === i"
-      :class="['choice group', modelValue === i && 'is-active']"
+      :aria-disabled="locked || undefined"
+      :disabled="locked && modelValue !== i"
+      :class="['choice group', modelValue === i && 'is-active', locked && 'is-locked']"
       :style="{ '--i': i }"
-      @click="emit('update:modelValue', i)"
+      @click="!locked && emit('update:modelValue', i)"
     >
       <span class="choice-letter">{{ LETTERS[i] }}</span>
       <span class="flex-1 text-[15px] font-medium leading-snug">{{ text }}</span>
@@ -59,6 +62,17 @@ const LETTERS = 'ABCDEFGH'
 }
 .choice.is-active .choice-check {
   @apply scale-100 opacity-100;
+}
+/* Qulflangan: tanlanmagan variantlar xira, hover effekti yo‘q */
+.choice.is-locked {
+  @apply cursor-default hover:translate-x-0 hover:shadow-none;
+}
+/* opacity emas: kirish animatsiyasi (fill-mode: both) opacity ni 1 da ushlab turadi */
+.choice.is-locked:not(.is-active) {
+  @apply border-line bg-slate-50 text-slate-400 hover:border-line;
+}
+.choice.is-locked:not(.is-active) .choice-letter {
+  @apply border-slate-200 bg-slate-100 text-slate-400;
 }
 @keyframes choice-in {
   from {

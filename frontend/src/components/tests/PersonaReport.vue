@@ -238,10 +238,21 @@ function downloadReport() {
             <img :src="landingAssetUrl(p.image)" :alt="p.title" class="h-full w-full object-contain" loading="lazy" />
           </button>
           <div class="flex flex-1 flex-col p-3">
-            <p class="text-[11px] font-semibold uppercase tracking-wider text-muted">{{ p.title }}</p>
-            <p class="mt-1 text-sm font-semibold text-primary-700">«{{ p.answerText }}»</p>
-            <p class="mt-1 text-[13px] leading-relaxed text-slate-700">{{ p.description }}</p>
-            <p class="mt-auto pt-2 text-[11px] text-muted">Variantlar: {{ (p.options || []).join(' · ') }}</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-muted">{{ p.title }} · {{ p.question }}</p>
+            <!-- Barcha variantlar: nomzod tanlagani belgilangan -->
+            <ul class="mt-2 space-y-1">
+              <li
+                v-for="(o, i) in p.options || []"
+                :key="i"
+                :class="['flex items-center gap-2 rounded-lg px-2 py-1 text-[13px]', i === p.answer ? 'bg-primary-50 font-semibold text-primary-800 ring-1 ring-inset ring-primary-600/20' : 'text-slate-500']"
+              >
+                <span :class="['grid h-5 w-5 shrink-0 place-items-center rounded text-[10px] font-bold', i === p.answer ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-500']">{{ 'ABCDEFGH'[i] }}</span>
+                <span class="min-w-0 flex-1">{{ o }}</span>
+                <CheckCircle2 v-if="i === p.answer" class="h-4 w-4 shrink-0 text-primary-600" aria-label="Nomzod tanlagan" />
+              </li>
+            </ul>
+            <p class="mt-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted">Tanlagani nimani bildiradi</p>
+            <p class="mt-0.5 text-[13px] leading-relaxed text-slate-700">{{ p.description }}</p>
           </div>
         </li>
       </ul>
