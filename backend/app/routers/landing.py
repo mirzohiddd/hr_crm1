@@ -14,9 +14,11 @@ Ochiq (login talab qilinmaydi):
                                        Telefon majburiy; bitta raqam bilan faqat bitta natija (409 — band).
                                        persona testida: pictures = { rasm_id: variant_indeksi } (barcha rasmlar majburiy).
                                        Natija F.I.Sh. bilan saqlanadi; xodimlar ro‘yxatida F.I.Sh. mos keladigan
-                                       YAGONA xodim bo‘lsa, natija unga ham bog‘lanadi (employeeId).
+                                       YAGONA xodim bo‘lsa, natija unga ham bog‘lanadi (employeeId); telefon raqami
+                                       CRM’dagi nomzodniki bilan mos bo‘lsa — nomzod profiliga (candidateId).
+                                       Javob: { id, submittedAt, message } — ball/tahlil/tavsiyalar nomzodga yuborilmaydi.
 
-HR (login bilan):
+HR (login + HR/admin roli — security.hr_user):
     GET    /landing-tests                     savolnomalar ro‘yxati
     GET    /landing-tests/{slug}/key          baholash kaliti
     GET    /landing-results                   natijalar ro‘yxati
@@ -36,12 +38,13 @@ from .. import landing
 from .. import persona_test as ps
 from .. import profile_test as pt
 from ..schemas import LandingPhoneCheckIn, LandingSubmitIn
-from ..security import current_user
+from ..result_links import candidate_brief, candidate_by_phone, landing_candidate_id, norm as _norm, phone_index
+from ..security import hr_user
 from ..store import get_store
 from ..utils import bad_request, conflict, get_or_404, not_found, now_local, phone_key
 
 public_router = APIRouter(prefix="/public", tags=["Landing (ochiq)"])
-router = APIRouter(tags=["Landing natijalari"], dependencies=[Depends(current_user)])
+router = APIRouter(tags=["Landing natijalari"], dependencies=[Depends(hr_user)])
 
 # Oddiy himoya: bitta IP manzildan 1 soatda ko‘pi bilan 20 ta topshirish va 40 ta telefon tekshiruvi
 # (raqamlarni ommaviy tekshirib chiqishdan himoya)
@@ -50,6 +53,7 @@ LIMITS = {"submit": RATE_LIMIT, "phone": 40}
 _hits: dict[str, deque] = defaultdict(deque)
 _hits_lock = threading.Lock()
 
+SUBMIT_MESSAGE = "Test muvaffaqiyatli yakunlandi. Natijangiz HR mutaxassisi tomonidan ko‘rib chiqiladi"
 PHONE_TAKEN = "Bu telefon raqami bilan avval ro‘yxatdan o‘tilgan. Boshqa raqam kiriting yoki HR bo‘limiga murojaat qiling."
 
 
@@ -79,14 +83,10 @@ SUMMARY_FIELDS = (
     "id", "testSlug", "testTitle", "fullName", "age", "date", "position", "phone", "submittedAt",
     "points", "maxPoints", "percent", "passPercent", "status", "viewed", "durationSec", "sections",
     # Profil testi: shkalalar foizi, ishonchlilik, eng mos lavozim, bog‘langan xodim
-    "format", "scores", "reliability", "bestPosition", "employeeId",
+    "format", "scores", "reliability", "bestPosition", "employeeId", "candidateId",
     # persona testi: profil nomi, ishonchlilik darajasi, samaradorlik / to‘sqinlik foizlari
     "profileTitle", "reliabilityLevel", "positive", "negative",
 )
-
-
-def _norm(v) -> str:
-    return " ".join(str(v or "").replace("ʻ", "‘").replace("'", "‘").replace("`", "‘").replace("’", "‘").split()).casefold()
 
 
 def _match_employee(store, full_name: str) -> dict | None:
@@ -110,8 +110,9 @@ def _match_employee(store, full_name: str) -> dict | None:
     return found[0] if len(found) == 1 else None
 
 
-def _summary(row: dict) -> dict:
+def _summary(row: dict, index: dict | None = None) -> dict:
     out = {k: row.get(k) for k in SUMMARY_FIELDS}
+    out["candidateId"] = landing_candidate_id(get_store(), row, index)
     if row.get("format") == "persona":
         # Ro‘yxat va Excel uchun foiz o‘rniga so‘z bilan daraja
         out["positiveWord"] = ps.LEVEL_WORD[ps.positive_level(int(row.get("positive") or 0))]
@@ -168,7 +169,7 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
     if body.client_id:
         existing = store.landing_results.first(lambda r: r.get("clientId") == body.client_id)
         if existing:
-            return {"id": existing["id"], "submittedAt": existing["submittedAt"], "duplicate": True}
+            return {"id": existing["id"], "submittedAt": existing["submittedAt"], "message": SUBMIT_MESSAGE, "duplicate": True}
     key = phone_key(body.phone)
     if store.landing_results.first(_same_phone(key)):
         raise conflict(PHONE_TAKEN)
@@ -183,9 +184,11 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
 
     result = landing.score(q, answers, body.duration_sec, body.full_name, pictures)
     employee = _match_employee(store, body.full_name) if landing.is_profile(q) else None
+    candidate = candidate_by_phone(store, body.phone)
     # Noyoblik saqlash qatlamida ham: tekshirish + yozish bitta qulf ichida (bir vaqtdagi ikki so‘rov ham o‘tmaydi)
     row, taken = store.landing_results.insert_unique({
         "employeeId": employee["id"] if employee else None,
+        "candidateId": candidate["id"] if candidate else None,
         "testSlug": q["slug"],
         "testTitle": q["title"],
         "fullName": body.full_name,
@@ -205,8 +208,8 @@ def public_submit(slug: str, body: LandingSubmitIn, request: Request):
     }, conflict=_same_phone(key))
     if taken:
         raise conflict(PHONE_TAKEN)
-    # Nomzodga ball ko‘rsatilmaydi — natijani HR ko‘radi
-    return {"id": row["id"], "submittedAt": row["submittedAt"]}
+    # Nomzodga ball, tahlil va tavsiyalar ko‘rsatilmaydi — natijani faqat HR ko‘radi
+    return {"id": row["id"], "submittedAt": row["submittedAt"], "message": SUBMIT_MESSAGE}
 
 
 # ---------- HR ----------
@@ -268,15 +271,20 @@ def hr_key(slug: str):
 
 @router.get("/landing-results")
 def hr_results():
-    rows = get_store().landing_results.all()
+    store = get_store()
+    rows = store.landing_results.all()
     rows.sort(key=lambda r: (r.get("submittedAt") or "", r["id"]), reverse=True)
-    return [_summary(r) for r in rows]
+    index = phone_index(store)
+    return [_summary(r, index) for r in rows]
 
 
 @router.get("/landing-results/{result_id}")
 def hr_result(result_id: int):
-    row = get_or_404(get_store().landing_results, result_id, "Natija")
+    store = get_store()
+    row = get_or_404(store.landing_results, result_id, "Natija")
     row.pop("clientId", None)
+    row["candidateId"] = landing_candidate_id(store, row)
+    row["candidate"] = candidate_brief(store.candidates.get(row["candidateId"])) if row["candidateId"] else None
     if row.get("format") == "persona" and row.get("report"):
         # Foiz o‘rniga daraja va tavsiflar — joriy savolnoma matnlaridan (eski natijalar uchun ham)
         try:

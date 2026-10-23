@@ -6,13 +6,16 @@ Ochiq (login yo‘q):
     POST /public/final-test/register   { firstName, lastName, age, birthDate, clientId? }
                                        → { participant: { id, key, firstName, lastName, fullName, age, birthDate } }
     POST /public/final-test/submit     { participantId, participantKey, answers, durationSec?, clientId? }
-                                       → natija (ball serverda); natija shu ishtirokchiga bog‘lanadi
+                                       → { result: { submittedAt, fullName }, message } — FAQAT neytral tasdiq.
+                                       Ball, foiz, to‘g‘ri/xato soni va holat serverda hisoblanib saqlanadi,
+                                       lekin nomzodga (javobda ham, takroriy yuborishda ham) qaytarilmaydi.
 
-Ishtirokchilar data/final_participants.json da saqlanadi (barqaror butun son id). CRM’dagi nomzodlar yoki
-xodimlar bilan avtomatik birlashtirilmaydi. "key" — faqat shu brauzerga beriladigan maxfiy kalit: natija
+Ishtirokchilar data/final_participants.json da saqlanadi (barqaror butun son id). Natija CRM’dagi xodim va
+nomzod profiliga familiya + ism bo‘yicha bog‘lanadi (faqat yagona mos yozuv bo‘lsa — app/result_links.py).
+"key" — faqat shu brauzerga beriladigan maxfiy kalit: natija
 faqat to‘g‘ri id + kalit bilan bog‘lanadi, HR javoblarida kalit ko‘rsatilmaydi.
 
-HR (login bilan):
+HR (login + HR/admin roli — security.hr_user):
     GET    /final-test/info            test haqida (savollar soni, o‘tish foizi)
     GET    /final-results              barcha topshirishlar (qisqa)
     GET    /final-results/{id}         batafsil: 20 ta savol, variantlar, tanlangan javob, to‘g‘ri javob
@@ -28,18 +31,22 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from .. import final_test as ft
 from ..schemas import FinalRegisterIn, FinalSubmitIn
-from ..security import current_user
+from ..result_links import candidate_brief, final_candidate_id, match_final_person
+from ..security import hr_user
 from ..store import _lock, get_store
 from ..utils import get_or_404, now_local
 
 public_router = APIRouter(prefix="/public/final-test", tags=["Yakuniy test (ochiq)"])
-router = APIRouter(tags=["Yakuniy bilim testi"], dependencies=[Depends(current_user)])
+router = APIRouter(tags=["Yakuniy bilim testi"], dependencies=[Depends(hr_user)])
 
 SUMMARY_FIELDS = (
-    "id", "participantNo", "participantId", "employeeId", "attemptNo", "fullName", "firstName", "lastName", "age",
+    "id", "participantNo", "participantId", "employeeId", "candidateId", "attemptNo", "fullName", "firstName", "lastName", "age",
     "birthDate", "position", "department", "submittedAt", "durationSec", "correct", "wrong", "total", "points",
     "maxPoints", "percent", "passPercent", "status", "testTitle", "testSlug",
 )
+# Nomzodga qaytariladigan yagona ma'lumot: topshirilgani tasdig‘i (ball, foiz, holat — yo‘q)
+SUBMIT_MESSAGE = "Test muvaffaqiyatli yakunlandi. Natijangiz HR mutaxassisi tomonidan ko‘rib chiqiladi"
+PUBLIC_RESULT_FIELDS = ("submittedAt", "fullName")
 # Ishtirokchining HR uchun ko‘rinadigan maydonlari (maxfiy kalit va clientId — yo‘q)
 PARTICIPANT_FIELDS = ("id", "firstName", "lastName", "fullName", "age", "birthDate", "registeredAt")
 
@@ -70,7 +77,14 @@ def _test() -> dict:
 
 
 def _summary(r: dict) -> dict:
-    return {k: r.get(k) for k in SUMMARY_FIELDS}
+    out = {k: r.get(k) for k in SUMMARY_FIELDS}
+    out["candidateId"] = final_candidate_id(get_store(), r)
+    return out
+
+
+def _public_ack(row: dict, **extra) -> dict:
+    """Nomzodga javob: faqat "qabul qilindi" — baholash natijasi umuman yuborilmaydi."""
+    return {"result": {k: row.get(k) for k in PUBLIC_RESULT_FIELDS}, "message": SUBMIT_MESSAGE, **extra}
 
 
 def _participant_public(p: dict, with_key: bool = False) -> dict:
@@ -130,7 +144,6 @@ def public_submit(body: FinalSubmitIn, request: Request):
     except ft.FinalTestError as e:
         raise HTTPException(status_code=400, detail=str(e))
     store = get_store()
-    keys = ("participantNo", "submittedAt", "correct", "wrong", "total", "percent", "passPercent", "status", "fullName")
     with _lock:
         participant = store.final_participants.get(body.participant_id)
         if not participant or not hmac.compare_digest(str(participant.get("accessKey", "")), body.participant_key):
@@ -142,12 +155,15 @@ def public_submit(body: FinalSubmitIn, request: Request):
         if body.client_id:
             existing = store.final_results.first(lambda r: r.get("clientId") == body.client_id)
             if existing:
-                return {"result": {k: existing.get(k) for k in keys}, "duplicate": True}
+                return _public_ack(existing, duplicate=True)
         _rate_limit(request)
-        g = ft.grade(test, answers)
+        g = ft.grade(test, answers)  # baholash faqat serverda
+        employee_id, candidate_id = match_final_person(
+            store, participant["lastName"], participant["firstName"], participant.get("age"), participant.get("birthDate") or "")
         attempt_no = store.final_results.count(participantId=participant["id"]) + 1
         row = store.final_results.insert({
-            "employeeId": None,
+            "employeeId": employee_id,
+            "candidateId": candidate_id,
             "participantId": participant["id"],
             "attemptNo": attempt_no,
             # Topshirish paytidagi nusxa — natija keyin ham o‘zgarmasdan qoladi
@@ -168,7 +184,7 @@ def public_submit(body: FinalSubmitIn, request: Request):
         })
         # Ishtirokchi raqami = yozuv raqami (CRM’da "Ishtirokchi #N")
         row = store.final_results.update(row["id"], {"participantNo": row["id"]})
-    return {"result": {k: row.get(k) for k in keys}}
+    return _public_ack(row)
 
 
 # ---------- HR ----------
@@ -193,6 +209,8 @@ def get_result(result_id: int):
         row.pop(hidden, None)
     participant = store.final_participants.get(row["participantId"]) if row.get("participantId") else None
     row["participant"] = {k: participant.get(k) for k in PARTICIPANT_FIELDS} if participant else None
+    row["candidateId"] = final_candidate_id(store, row)
+    row["candidate"] = candidate_brief(store.candidates.get(row["candidateId"])) if row["candidateId"] else None
     return row
 
 

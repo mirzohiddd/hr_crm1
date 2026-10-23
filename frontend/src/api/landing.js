@@ -6,6 +6,14 @@ import { ApiError, USE_MOCK, request } from './client'
  * get(id) — 40 savolli testda (format=profile): report (HR hisoboti) va reportText (nusxalash uchun to‘liq matn).
  * Mock rejimida (VITE_API_URL yo‘q) bu bo‘lim ishlamaydi — backend talab qilinadi.
  */
+const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
+
+/**
+ * Backend bergan rasm yo‘li (masalan, /public/tests/sotuv/images/rasm-1.jpg — ochiq endpoint, faqat savol rasmi)
+ * → to‘liq manzil. PersonaReport va LandingKeyModal shu funksiyadan foydalanadi.
+ */
+export const landingAssetUrl = (path) => (/^https?:\/\//.test(path || '') ? path : `${API_BASE}${path || ''}`)
+
 function requireBackend() {
   if (USE_MOCK) throw new ApiError('Nomzodlar testi backend bilan ishlaydi. frontend/.env da VITE_API_URL ni sozlang.', 503)
 }

@@ -1,8 +1,9 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import {
-  BadgeCheck, Briefcase, Building2, CalendarClock, CalendarPlus, Check, MapPin, MessageSquareText, Pencil, Phone, PhoneCall, PhoneMissed,
-  RotateCcw, Trash2, User, UserRound, XCircle,
+  BadgeCheck, Briefcase, Building2, CalendarClock, CalendarPlus, Check, ChevronRight, ClipboardCheck, MapPin, MessageSquareText, Pencil, Phone,
+  PhoneCall, PhoneMissed, RotateCcw, Trash2, User, UserRound, XCircle,
 } from 'lucide-vue-next'
 import Modal from '@/components/ui/Modal.vue'
 import Button from '@/components/ui/Button.vue'
@@ -12,6 +13,9 @@ import SourceIcon from './SourceIcon.vue'
 import { useCatalogStore } from '@/stores/catalog'
 import { useEmployeesStore } from '@/stores/employees'
 import { formatDateTime } from '@/utils/date'
+import { candidatesApi } from '@/api/candidates'
+import { LANDING_RESULT_LABELS } from '@/constants'
+import { FINAL_RESULT_LABELS, isPassed } from '@/stores/finalTest'
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -53,6 +57,50 @@ const info = computed(() => {
   ]
 })
 const history = computed(() => [...(props.candidate?.history || [])].reverse())
+
+// ---------- Test natijalari (faqat HR panelida; backend HR/admin rolini tekshiradi) ----------
+const router = useRouter()
+const tests = ref({ landing: [], final: [] })
+const testsLoading = ref(false)
+const testsError = ref('')
+let testsReq = 0
+async function loadTests(id) {
+  const req = ++testsReq
+  tests.value = { landing: [], final: [] }
+  testsError.value = ''
+  if (!id) return
+  testsLoading.value = true
+  try {
+    const data = await candidatesApi.testResults(id)
+    if (req === testsReq) tests.value = { landing: data?.landing || [], final: data?.final || [] }
+  } catch (e) {
+    if (req === testsReq) testsError.value = e.message || 'Test natijalarini yuklab bo‘lmadi'
+  } finally {
+    if (req === testsReq) testsLoading.value = false
+  }
+}
+watch(() => [props.open, props.candidate?.id], ([open, id]) => open && loadTests(id), { immediate: true })
+
+const testRows = computed(() =>
+  [
+    ...tests.value.final.map((r) => ({
+      key: `f${r.id}`, tab: 'final', id: r.id, title: r.testTitle || 'Yakuniy bilim testi', at: r.submittedAt,
+      status: isPassed(r) ? 'O‘tdi' : 'O‘tmadi', label: FINAL_RESULT_LABELS[r.status] || r.status,
+      summary: `${r.correct}/${r.total} to‘g‘ri · ${r.percent}%${r.attemptNo > 1 ? ` · ${r.attemptNo}-urinish` : ''}`,
+    })),
+    ...tests.value.landing.map((r) => ({
+      key: `l${r.id}`, tab: 'landing', id: r.id, title: r.testTitle || 'Nomzodlar testi', at: r.submittedAt,
+      status: r.status, label: LANDING_RESULT_LABELS[r.status] || r.status,
+      summary: r.format === 'persona'
+        ? [r.profileTitle, r.bestPosition?.name ? `Eng mos: ${r.bestPosition.name}` : ''].filter(Boolean).join(' · ')
+        : [typeof r.percent === 'number' ? `${r.percent}%` : '', r.bestPosition?.name ? `Eng mos: ${r.bestPosition.name}` : ''].filter(Boolean).join(' · '),
+    })),
+  ].sort((a, b) => (b.at || '').localeCompare(a.at || '')),
+)
+function openTestResult(row) {
+  emit('close')
+  router.push({ path: '/tests', query: { tab: row.tab, result: row.id } })
+}
 </script>
 
 <template>
@@ -114,6 +162,25 @@ const history = computed(() => [...(props.candidate?.history || [])].reverse())
       <div v-if="candidate.note" class="mt-5 rounded-lg bg-slate-50 p-3.5 text-sm text-slate-700">
         <p class="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted"><MessageSquareText class="h-3.5 w-3.5" /> Izoh</p>
         {{ candidate.note }}
+      </div>
+
+      <div class="mt-6">
+        <h3 class="flex items-center gap-1.5 text-sm font-semibold text-ink"><ClipboardCheck class="h-4 w-4 text-muted" /> Test natijalari</h3>
+        <p v-if="testsLoading" class="mt-3 text-sm text-muted">Yuklanmoqda...</p>
+        <p v-else-if="testsError" class="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ testsError }}</p>
+        <p v-else-if="!testRows.length" class="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-muted">Bu nomzod hali test topshirmagan (yoki natija telefon raqami / ism-familiya bo‘yicha profilga bog‘lanmagan).</p>
+        <ul v-else class="mt-3 divide-y divide-line overflow-hidden rounded-lg border border-line">
+          <li v-for="t in testRows" :key="t.key">
+            <button type="button" class="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-primary-50/40" @click="openTestResult(t)">
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-medium text-ink">{{ t.title }}</span>
+                <span class="mt-0.5 block truncate text-xs text-muted">{{ formatDateTime(t.at) }}<template v-if="t.summary"> · {{ t.summary }}</template></span>
+              </span>
+              <StatusBadge v-if="t.status" :status="t.status" :label="t.label" size="sm" />
+              <ChevronRight class="h-4 w-4 shrink-0 text-muted" />
+            </button>
+          </li>
+        </ul>
       </div>
 
       <div v-if="history.length" class="mt-6">

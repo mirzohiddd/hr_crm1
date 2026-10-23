@@ -130,6 +130,8 @@ const letterClass = (q, i) => {
           <div class="info"><dt><Clock class="h-3.5 w-3.5" /> Sarflangan vaqt</dt><dd>{{ duration }}</dd></div>
           <div class="info"><dt><Hash class="h-3.5 w-3.5" /> Ishtirokchi ID</dt><dd>{{ detail.participantId ? `#${detail.participantId}` : `Natija #${detail.participantNo ?? detail.id}` }}</dd></div>
           <div v-if="detail.position" class="info"><dt><Briefcase class="h-3.5 w-3.5" /> Lavozim</dt><dd>{{ detail.position }}</dd></div>
+          <div v-if="detail.candidate" class="info"><dt><UserRound class="h-3.5 w-3.5" /> Nomzod profili</dt><dd><RouterLink :to="{ path: '/candidates', query: { id: detail.candidate.id } }" class="text-primary-700 hover:underline" :title="detail.candidate.fullName">{{ detail.candidate.fullName || `Nomzod #${detail.candidate.id}` }}</RouterLink></dd></div>
+          <div v-if="detail.employeeId" class="info"><dt><UserRound class="h-3.5 w-3.5" /> Xodim kartasi</dt><dd><RouterLink :to="`/employees/${detail.employeeId}`" class="text-primary-700 hover:underline">Xodim #{{ detail.employeeId }}</RouterLink></dd></div>
         </dl>
         <div :class="['rounded-2xl border p-4', passed ? 'border-emerald-100 bg-emerald-50/60' : 'border-red-100 bg-red-50/60']">
           <div class="flex items-center justify-between gap-3">

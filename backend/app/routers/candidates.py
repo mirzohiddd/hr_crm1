@@ -1,8 +1,9 @@
-"""Nomzodlar (candidates.json): voronka, ishga qabul qilish, import."""
+"""Nomzodlar (candidates.json): voronka, ishga qabul qilish, import, nomzodning test natijalari (faqat HR)."""
 from fastapi import APIRouter, Depends, Response
 
 from ..schemas import CandidateIn, CandidateStatusIn, HireIn, ImportIn
-from ..security import current_user
+from ..result_links import final_candidate_id, landing_candidate_id, phone_index
+from ..security import current_user, hr_user
 from ..store import get_store
 from ..utils import bad_request, conflict, get_or_404, now_local, phone_key, split_name
 
@@ -29,6 +30,28 @@ def list_candidates(_: dict = Depends(current_user)):
 @router.get("/{candidate_id}")
 def get_candidate(candidate_id: int, _: dict = Depends(current_user)):
     return get_or_404(get_store().candidates, candidate_id, "Nomzod")
+
+
+@router.get("/{candidate_id}/test-results")
+def candidate_test_results(candidate_id: int, _: dict = Depends(hr_user)):
+    """
+    Nomzod profiliga bog‘langan test natijalari (qisqa ko‘rinish) — faqat HR/admin.
+    landing — nomzodlar testi (/test/sotuv, telefon bo‘yicha), final — yakuniy bilim testi (/test/yakuniy).
+    To‘liq hisobot: GET /landing-results/{id} va GET /final-results/{id}.
+    """
+    from . import final_test as final_router
+    from . import landing as landing_router
+
+    store = get_store()
+    get_or_404(store.candidates, candidate_id, "Nomzod")
+    index = phone_index(store)
+    landing_rows = [r for r in store.landing_results.all() if landing_candidate_id(store, r, index) == candidate_id]
+    final_rows = [r for r in store.final_results.all() if final_candidate_id(store, r) == candidate_id]
+    newest = lambda r: (r.get("submittedAt") or "", r["id"])  # noqa: E731
+    return {
+        "landing": [landing_router._summary(r, index) for r in sorted(landing_rows, key=newest, reverse=True)],
+        "final": [final_router._summary(r) for r in sorted(final_rows, key=newest, reverse=True)],
+    }
 
 
 @router.post("")

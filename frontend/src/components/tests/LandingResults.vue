@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Copy, Download, ExternalLink, Eye, KeyRound, Link2, SearchX, Trash2, UserRoundSearch } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
 import Avatar from '@/components/ui/Avatar.vue'
@@ -103,6 +104,17 @@ function exportCsv() {
 }
 
 const openId = ref(null)
+// Nomzod profilidan kelgan havola: /tests?tab=...&result=ID — natija oynasi darhol ochiladi
+const route = useRoute()
+const router = useRouter()
+onMounted(() => {
+  const id = Number(route.query.result)
+  if (Number.isInteger(id) && id > 0) {
+    openId.value = id
+    const { result, ...rest } = route.query
+    router.replace({ query: rest })
+  }
+})
 const keyOpen = ref(false)
 const deleteTarget = ref(null)
 const deleting = ref(false)

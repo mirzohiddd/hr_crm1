@@ -123,14 +123,21 @@ def test_submit_rejects_incomplete_answers(client):
     assert r.status_code == 400 and "Javobsiz" in r.json()["detail"]
 
 
+def _hr_row_for(client, hr_headers, participant_id):
+    rows = [r for r in client.get(f"{API}/final-results", headers=hr_headers).json() if r["participantId"] == participant_id]
+    return sorted(rows, key=lambda r: r["id"])
+
+
 @pytest.mark.parametrize("correct, status, percent", [(20, "O‘tdi", 100), (16, "O‘tdi", 80), (15, "O‘tmadi", 75)])
-def test_scoring_rules_unchanged(client, correct, status, percent):
+def test_scoring_rules_unchanged(client, hr_headers, correct, status, percent):
+    """Ball qoidalari o‘zgarmagan — lekin natija faqat HR endpointida ko‘rinadi, nomzod javobida yo‘q."""
     p = register(client)
     r = client.post(SUBMIT, json={"participantId": p["id"], "participantKey": p["key"], "answers": answers_with(correct)})
     assert r.status_code == 201, r.text
     res = r.json()["result"]
-    assert (res["correct"], res["status"], res["percent"], res["passPercent"]) == (correct, status, percent, 80)
-    assert res["fullName"] == p["fullName"]
+    assert set(res) == {"submittedAt", "fullName"} and res["fullName"] == p["fullName"]
+    row = _hr_row_for(client, hr_headers, p["id"])[-1]
+    assert (row["correct"], row["status"], row["percent"], row["passPercent"]) == (correct, status, percent, 80)
 
 
 def test_duplicate_submit_creates_one_result_and_attempts_count(client, hr_headers):
@@ -138,21 +145,20 @@ def test_duplicate_submit_creates_one_result_and_attempts_count(client, hr_heade
     body = {"participantId": p["id"], "participantKey": p["key"], "answers": answers_with(18), "clientId": "dup-sub-1"}
     first = client.post(SUBMIT, json=body).json()["result"]
     again = client.post(SUBMIT, json=body).json()
-    assert again["duplicate"] is True and again["result"]["participantNo"] == first["participantNo"]
-    second = client.post(SUBMIT, json={**body, "clientId": "dup-sub-2"}).json()["result"]
-    rows = [r for r in client.get(f"{API}/final-results", headers=hr_headers).json() if r["participantId"] == p["id"]]
+    assert again["duplicate"] is True and again["result"] == first  # takroriy javobda ham ball yo‘q
+    assert len(_hr_row_for(client, hr_headers, p["id"])) == 1
+    client.post(SUBMIT, json={**body, "clientId": "dup-sub-2"})
+    rows = _hr_row_for(client, hr_headers, p["id"])
     assert sorted(r["attemptNo"] for r in rows) == [1, 2]
-    assert {r["id"] for r in rows} == {first["participantNo"], second["participantNo"]}
 
 
 # ---------- HR paneli ----------
 def test_hr_sees_participant_data_and_answers(client, hr_headers):
     p = register(client, firstName="Madina", lastName="Yusupova", age=31, birthDate=birth_for(31))
     ans = answers_with(17)
-    sub = client.post(SUBMIT, json={"participantId": p["id"], "participantKey": p["key"], "answers": ans}).json()["result"]
+    client.post(SUBMIT, json={"participantId": p["id"], "participantKey": p["key"], "answers": ans})
 
-    rows = client.get(f"{API}/final-results", headers=hr_headers).json()
-    row = next(r for r in rows if r["id"] == sub["participantNo"])
+    row = _hr_row_for(client, hr_headers, p["id"])[-1]
     assert row["fullName"] == "Yusupova Madina"
     assert (row["firstName"], row["lastName"], row["age"], row["birthDate"]) == ("Madina", "Yusupova", 31, birth_for(31))
     assert row["testTitle"] and row["submittedAt"] and row["percent"] == 85 and row["status"] == "O‘tdi"

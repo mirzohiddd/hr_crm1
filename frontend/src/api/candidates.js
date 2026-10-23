@@ -23,6 +23,15 @@ export const candidatesApi = {
   ...base,
 
   /**
+   * GET /candidates/{id}/test-results — nomzod profiliga bog‘langan test natijalari (faqat HR/admin; backend rolni tekshiradi).
+   * { landing: [...nomzodlar testi], final: [...yakuniy bilim testi] }. Mock rejimida natijalar yo‘q.
+   */
+  testResults(id) {
+    if (USE_MOCK) return mockResponse({ landing: [], final: [] })
+    return request(`/candidates/${id}/test-results`)
+  },
+
+  /**
    * PATCH /candidates/{id}/status { status, interviewAt?, rejectReason? }
    * Bosqichni o‘zgartirish (Yangi → Bog‘lanildi / Bog‘lanilmadi → Suhbat → Rad etildi).
    * "Ishga qabul qilindi" uchun hire() ishlatiladi.

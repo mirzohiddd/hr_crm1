@@ -5,13 +5,15 @@
  *   va ishtirokchi id + maxfiy kalit qaytaradi. Shundan keyingina savollar ochiladi.
  * - Javob tanlangach keyingi savolga avtomatik o‘tiladi; oldingi savolga qaytib javobni o‘zgartirish mumkin.
  * - 20-savoldan keyin "Testni yakunlash" — javoblar ishtirokchi id/kaliti bilan backendga yuboriladi,
- *   ball faqat backendda hisoblanadi. Natija HR CRM → Testlar → "Yakuniy bilim testi" da ism-familiya bilan.
+ *   ball faqat backendda hisoblanadi va saqlanadi. Natija faqat HR CRM → Testlar → "Yakuniy bilim testi" da
+ *   (va nomzod profilida) ko‘rinadi. Nomzodga faqat neytral xabar ko‘rsatiladi: backend javobida ball, foiz,
+ *   to‘g‘ri/xato soni va holat YO‘Q (faqat submittedAt va fullName), brauzer xotirasiga ham natija yozilmaydi.
  * - Sahifa yangilansa: kiritilgan ma'lumotlar, ishtirokchi va tugallanmagan javoblar localStorage dan tiklanadi.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
-  AlertCircle, ArrowLeft, ArrowRight, Award, BookOpenCheck, Cake, CalendarClock, CalendarDays, Check, CheckCircle2, Clock,
-  Flag, GraduationCap, Keyboard, ListChecks, Loader2, RotateCcw, ShieldCheck, Target, UserRound, XCircle,
+  AlertCircle, ArrowLeft, ArrowRight, BookOpenCheck, Cake, CalendarClock, CalendarDays, Check, CheckCircle2, Clock,
+  Flag, GraduationCap, Keyboard, ListChecks, Loader2, RotateCcw, ShieldCheck, Target, UserRound,
 } from 'lucide-vue-next'
 import BrandLogo from '@/components/BrandLogo.vue'
 import ChoiceAnswer from '@/components/ChoiceAnswer.vue'
@@ -20,7 +22,13 @@ import { finalApi } from '@/api'
 
 const LETTERS = 'ABCDEFGH'
 const DRAFT_KEY = 'hr-crm:yakuniy:draft'
-const RESULT_KEY = 'hr-crm:yakuniy:result'
+// Yakunlangani belgisi (faqat ism va topshirilgan vaqt). Eski versiya natijani (ball bilan) LEGACY_RESULT_KEY ga
+// yozgan — u sahifa ochilganda o‘chiriladi.
+const DONE_KEY = 'hr-crm:yakuniy:done'
+const LEGACY_RESULT_KEY = 'hr-crm:yakuniy:result'
+const DONE_MESSAGE = 'Test muvaffaqiyatli yakunlandi. Natijangiz HR mutaxassisi tomonidan ko‘rib chiqiladi'
+/** Nomzodga ko‘rsatiladigan yagona ma'lumot — baholash maydonlari (ball, foiz, holat) hech qachon saqlanmaydi */
+const doneInfo = (r) => ({ fullName: String(r?.fullName || ''), submittedAt: String(r?.submittedAt || '') })
 const FORM_KEY = 'hr-crm:yakuniy:form'
 const PARTICIPANT_KEY = 'hr-crm:yakuniy:participant'
 
@@ -105,7 +113,7 @@ const startedAt = ref(Date.now())
 const clientId = ref(newId())
 const submitting = ref(false)
 const submitError = ref('')
-const result = ref(null)
+const result = ref(null) // { fullName, submittedAt } — natija emas, faqat "qabul qilindi" tasdig‘i
 
 const questions = computed(() => test.value?.questions || [])
 const total = computed(() => questions.value.length)
@@ -156,9 +164,10 @@ async function load() {
         age: src.age === null || src.age === undefined ? '' : String(src.age), birthDate: String(src.birthDate ?? ''),
       })
     }
-    const saved = storage.get(sessionStorage, RESULT_KEY)
-    if (saved?.result) {
-      result.value = saved.result
+    storage.remove(sessionStorage, LEGACY_RESULT_KEY)
+    const saved = storage.get(sessionStorage, DONE_KEY)
+    if (saved?.submittedAt) {
+      result.value = doneInfo(saved)
       phase.value = 'result'
       return
     }
@@ -357,9 +366,10 @@ async function finish() {
       durationSec: Math.round((Date.now() - startedAt.value) / 1000),
       clientId: clientId.value,
     })
-    result.value = { ...res.result, fullName: res.result.fullName || participant.value.fullName }
+    // Backend faqat tasdiq qaytaradi; xavfsizlik uchun bu yerda ham faqat ism va vaqt olinadi
+    result.value = doneInfo({ fullName: res?.result?.fullName || participant.value.fullName, submittedAt: res?.result?.submittedAt })
     phase.value = 'result'
-    storage.set(sessionStorage, RESULT_KEY, { result: result.value })
+    storage.set(sessionStorage, DONE_KEY, result.value)
     storage.remove(localStorage, DRAFT_KEY)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } catch (e) {
@@ -378,7 +388,8 @@ async function finish() {
 }
 
 function restart() {
-  storage.remove(sessionStorage, RESULT_KEY)
+  storage.remove(sessionStorage, DONE_KEY)
+  storage.remove(sessionStorage, LEGACY_RESULT_KEY)
   storage.remove(localStorage, DRAFT_KEY)
   Object.keys(answers).forEach((k) => delete answers[k])
   result.value = null
@@ -394,19 +405,7 @@ function restart() {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// ---------- Natija ----------
-const passed = computed(() => result.value?.status === 'O‘tdi')
-const R = 64
-const C = 2 * Math.PI * R
-const ringDash = ref(`0 ${C}`)
-watch(
-  result,
-  (r) => {
-    ringDash.value = `0 ${C}`
-    if (r) setTimeout(() => (ringDash.value = `${(r.percent / 100) * C} ${C}`), 120)
-  },
-  { immediate: true },
-)
+// ---------- Yakun (natija nomzodga ko‘rsatilmaydi) ----------
 const formatDT = (v) => (v ? `${v.slice(8, 10)}.${v.slice(5, 7)}.${v.slice(0, 4)}, ${v.slice(11, 16)}` : '')
 </script>
 
@@ -605,40 +604,14 @@ const formatDT = (v) => (v ? `${v.slice(8, 10)}.${v.slice(5, 7)}.${v.slice(0, 4)
               </div>
             </section>
 
-            <!-- ================= Natija ================= -->
+            <!-- ================= Yakun: faqat neytral xabar (ball, foiz, holat ko‘rsatilmaydi) ================= -->
             <section v-else key="result" class="reveal">
               <div class="panel relative overflow-hidden p-6 text-center sm:p-10">
-                <div :class="['absolute inset-x-0 top-0 h-1.5', passed ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-gradient-to-r from-red-500 to-orange-400']" />
-                <div class="relative mx-auto h-40 w-40">
-                  <svg viewBox="0 0 160 160" class="h-full w-full -rotate-90" aria-hidden="true">
-                    <circle cx="80" cy="80" :r="R" fill="none" stroke-width="14" class="stroke-slate-100" />
-                    <circle cx="80" cy="80" :r="R" fill="none" stroke-width="14" stroke-linecap="round" :stroke-dasharray="ringDash" :class="['ring-arc', passed ? 'stroke-emerald-500' : 'stroke-red-500']" />
-                  </svg>
-                  <div class="absolute inset-0 grid place-items-center">
-                    <div>
-                      <p class="text-4xl font-bold tabular-nums tracking-tight">{{ result.correct }}<span class="text-xl text-muted">/{{ result.total }}</span></p>
-                      <p class="text-xs text-muted">ball · {{ result.percent }}%</p>
-                    </div>
-                  </div>
-                </div>
-                <span :class="['mt-5 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold ring-1 ring-inset', passed ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' : 'bg-red-50 text-red-700 ring-red-600/20']">
-                  <Award v-if="passed" class="h-4 w-4" /><XCircle v-else class="h-4 w-4" />
-                  {{ passed ? 'Testdan o‘tdi' : 'Testdan o‘tmadi' }}
-                </span>
-                <h1 class="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">{{ passed ? 'Tabriklaymiz!' : 'Bu safar yetmadi' }}</h1>
-                <p v-if="result.fullName" class="mt-1 text-sm font-medium text-ink">{{ result.fullName }}</p>
-                <p class="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-600">
-                  <template v-if="passed">Siz yakuniy bilim testidan muvaffaqiyatli o‘tdingiz. Natija HR bo‘limiga yuborildi.</template>
-                  <template v-else>O‘tish uchun kamida {{ Math.ceil((result.passPercent / 100) * result.total) }} ta to‘g‘ri javob kerak. Natija HR bo‘limiga yuborildi — mavzularni takrorlab, qayta topshirishingiz mumkin.</template>
-                </p>
-
-                <dl class="mx-auto mt-7 grid max-w-lg grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div class="res-cell"><dt>To‘g‘ri</dt><dd class="text-emerald-600">{{ result.correct }}</dd></div>
-                  <div class="res-cell"><dt>Xato</dt><dd class="text-red-600">{{ result.wrong }}</dd></div>
-                  <div class="res-cell"><dt>Ball</dt><dd>{{ result.correct }}/{{ result.total }}</dd></div>
-                  <div class="res-cell"><dt>Foiz</dt><dd>{{ result.percent }}%</dd></div>
-                </dl>
-                <p class="mt-6 inline-flex items-center gap-1.5 text-xs text-muted"><CalendarClock class="h-3.5 w-3.5" /> Topshirildi: {{ formatDT(result.submittedAt) }}</p>
+                <div class="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary-600 via-primary-500 to-sky-400" />
+                <span class="done-badge mx-auto"><CheckCircle2 class="h-10 w-10" /></span>
+                <h1 class="mx-auto mt-6 max-w-lg text-xl font-bold leading-snug tracking-tight sm:text-2xl" role="status">{{ DONE_MESSAGE }}</h1>
+                <p v-if="result?.fullName" class="mt-3 text-sm font-medium text-ink">{{ result.fullName }}</p>
+                <p v-if="result?.submittedAt" class="mt-6 inline-flex items-center gap-1.5 text-xs text-muted"><CalendarClock class="h-3.5 w-3.5" /> Topshirildi: {{ formatDT(result.submittedAt) }}</p>
               </div>
               <div class="mt-5 text-center">
                 <button type="button" class="btn-ghost" @click="restart"><RotateCcw class="h-4 w-4" /> Testni qayta boshlash</button>
@@ -723,17 +696,8 @@ const formatDT = (v) => (v ? `${v.slice(8, 10)}.${v.slice(5, 7)}.${v.slice(0, 4)
 .q-tick {
   @apply absolute -right-1 -top-1 grid h-3.5 w-3.5 place-items-center rounded-full bg-emerald-500 text-white ring-2 ring-white;
 }
-.res-cell {
-  @apply rounded-2xl bg-slate-50 px-3 py-3;
-}
-.res-cell dt {
-  @apply text-[11px] font-medium uppercase tracking-wider text-muted;
-}
-.res-cell dd {
-  @apply mt-0.5 text-2xl font-bold tabular-nums;
-}
-.ring-arc {
-  transition: stroke-dasharray 1.1s cubic-bezier(0.2, 0.8, 0.2, 1);
+.done-badge {
+  @apply grid h-20 w-20 place-items-center rounded-full bg-primary-50 text-primary-600 ring-8 ring-primary-50/60;
 }
 .btn-primary {
   @apply inline-flex h-11 select-none items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-500 px-5 text-sm font-semibold text-white shadow-lg shadow-primary-600/25 transition-all duration-200;

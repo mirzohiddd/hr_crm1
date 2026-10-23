@@ -51,6 +51,16 @@ def current_user(creds: HTTPAuthorizationCredentials | None = Depends(bearer)) -
     return user
 
 
+HR_ROLES = ("admin", "hr")
+
+
+def hr_user(user: dict = Depends(current_user)) -> dict:
+    """Test natijalari kabi maxfiy HR ma'lumotlari: faqat HR xodimi yoki administrator (rol serverda tekshiriladi)."""
+    if user.get("role") not in HR_ROLES:
+        raise HTTPException(status_code=403, detail="Bu ma’lumot faqat HR xodimlari va administrator uchun")
+    return user
+
+
 def admin_user(user: dict = Depends(current_user)) -> dict:
     if user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Bu amal faqat administrator uchun")

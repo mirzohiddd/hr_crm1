@@ -2,7 +2,9 @@
  * Backend bilan aloqa (HR CRM backendi, login talab qilinmaydigan ochiq endpointlar):
  *   GET  /public/final-test            20 ta savol — to‘g‘ri javoblarsiz (havola/token talab qilinmaydi)
  *   POST /public/final-test/register   { firstName, lastName, age, birthDate, clientId } → { participant: { id, key, ... } }
- *   POST /public/final-test/submit     { participantId, participantKey, answers, durationSec, clientId } — ball backendda
+ *   POST /public/final-test/submit     { participantId, participantKey, answers, durationSec, clientId }
+ *                                      → { result: { submittedAt, fullName }, message } — ball backendda hisoblanadi va
+ *                                        nomzodga qaytarilmaydi (natijani faqat HR CRM ko‘radi)
  */
 const BASE_URL = (import.meta.env.VITE_API_URL || '/api/v1').replace(/\/+$/, '')
 

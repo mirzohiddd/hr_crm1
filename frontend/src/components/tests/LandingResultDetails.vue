@@ -106,6 +106,7 @@ const pointTone = (i) => (i.points === i.maxPoints ? 'text-emerald-600' : i.poin
           <div class="info"><dt><Clock class="h-3.5 w-3.5" /> Topshirildi</dt><dd>{{ formatDateTime(detail.submittedAt) }}</dd></div>
           <div class="info"><dt><Phone class="h-3.5 w-3.5" /> Telefon</dt><dd>{{ detail.phone || '—' }}</dd></div>
           <div class="info"><dt><Clock class="h-3.5 w-3.5" /> Sarflangan vaqt</dt><dd>{{ duration }}</dd></div>
+          <div v-if="detail.candidate" class="info"><dt><User class="h-3.5 w-3.5" /> Nomzod profili</dt><dd><RouterLink :to="{ path: '/candidates', query: { id: detail.candidate.id } }" class="text-primary-700 hover:underline" :title="detail.candidate.fullName">{{ detail.candidate.fullName || `Nomzod #${detail.candidate.id}` }}</RouterLink></dd></div>
           <div v-if="detail.employeeId" class="info"><dt><User class="h-3.5 w-3.5" /> Xodim kartasi</dt><dd><RouterLink :to="`/employees/${detail.employeeId}`" class="text-primary-700 hover:underline">Xodim #{{ detail.employeeId }}</RouterLink></dd></div>
         </dl>
 
